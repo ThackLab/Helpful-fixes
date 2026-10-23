@@ -4,7 +4,7 @@ import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { Board, type PromotionPiece } from '../components/Board';
 import { useSolver } from '../components/useSolver';
-import { LESSONS, findLesson, type DrillStep, type Lesson, type LessonStep, type PuzzleStep } from '../lib/learn/curriculum';
+import { LESSONS, findLesson, type DrillStep, type Lesson, type LessonStep, type PuzzleStep, type QuizStep } from '../lib/learn/curriculum';
 import { loadPuzzles } from '../lib/learn/puzzles';
 import { getAnalysisEngine } from '../lib/engine/manager';
 import { legalDests, moveToUci, playUci, sanLine } from '../lib/chess/utils';
@@ -24,7 +24,20 @@ export function arrowShapes(arrows: string[] = []): DrawShape[] {
 const markMap = (marks: string[] = []) => (marks.length ? new Map(marks.map((m) => [m, 'hl-key'])) : undefined);
 const lastOf = (uci?: string) => (uci ? ([uci.slice(0, 2), uci.slice(2, 4)] as [string, string]) : undefined);
 
-const STEP_LABEL: Record<LessonStep['kind'], string> = { info: 'Idea', walk: 'Example', puzzle: 'Your move', drill: 'Drill' };
+/** Keeps an element visible inside its scrolling panel whenever `dep` changes (never scrolls the page). */
+function useRevealInPanel<T extends HTMLElement>(dep: unknown) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const box = el?.closest<HTMLElement>('.panel-body');
+    if (!el || !box) return;
+    const over = el.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom;
+    if (over > 0) box.scrollTop += over + 12;
+  }, [dep]);
+  return ref;
+}
+
+const STEP_LABEL: Record<LessonStep['kind'], string> = { info: 'Idea', walk: 'Example', puzzle: 'Your move', drill: 'Drill', quiz: 'Quiz' };
 
 /** Number of generated practice puzzles for a lesson's themes. */
 export function usePracticeCount(lesson: Lesson | undefined) {
@@ -42,6 +55,7 @@ export function LessonPage({ id }: { id: string }) {
   const complete = useLearn((s) => s.complete);
   const [idx, setIdx] = useState(0);
   const [walkPly, setWalkPly] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
   const practiceCount = usePracticeCount(lesson);
 
   const step: LessonStep | undefined = lesson?.steps[idx];
@@ -57,6 +71,7 @@ export function LessonPage({ id }: { id: string }) {
 
   useEffect(() => {
     setWalkPly(0);
+    setPicked(null);
     if (!lesson) return;
     if (idx >= lesson.steps.length) complete(lesson.id);
     else reach(lesson.id, idx);
@@ -76,12 +91,15 @@ export function LessonPage({ id }: { id: string }) {
   const finished = idx >= total;
   const nextLesson = LESSONS[LESSONS.indexOf(lesson) + 1];
   const walk = step?.kind === 'walk' ? step : null;
+  const quiz = step?.kind === 'quiz' ? step : null;
+  const pickedOption = quiz && picked !== null ? quiz.options[picked] : null;
   const canAdvance =
     !step ||
     step.kind === 'info' ||
     (walk && walkPly >= walk.moves.length) ||
     (puzzle && (solver.state === 'solved' || solver.state === 'revealed')) ||
-    (step.kind === 'drill' && drillDone);
+    (step.kind === 'drill' && drillDone) ||
+    !!pickedOption?.correct;
 
   const next = () => {
     if (walk && walkPly < walk.moves.length) {
@@ -116,6 +134,11 @@ export function LessonPage({ id }: { id: string }) {
   }
   if (puzzle && solver.view)
     board = { fen: solver.view.fen, lastMove: solver.view.lastMove, check: solver.view.check, highlights: solver.highlights };
+  if (quiz) {
+    const c = new Chess(quiz.fen);
+    if (pickedOption?.uci) playUci(c, pickedOption.uci);
+    board = { fen: c.fen(), lastMove: lastOf(pickedOption?.uci), check: c.inCheck(), shapes: arrowShapes(pickedOption?.arrows) };
+  }
 
   return (
     <div className="game-layout focus-screen lesson-screen">
@@ -209,6 +232,8 @@ export function LessonPage({ id }: { id: string }) {
             </StepCard>
           ) : puzzle ? (
             <PuzzleCard step={puzzle} solver={solver} />
+          ) : quiz ? (
+            <QuizCard step={quiz} picked={picked} onPick={setPicked} />
           ) : drillStep ? (
             <StepCard step={drillStep} label={STEP_LABEL.drill} text={drillDone ? drillStep.success : drillStep.text}>
               <p className={`coach-text ${drill.status === 'lost' ? 'wrong-text' : 'faint'}`}>
@@ -285,6 +310,7 @@ export function SolverFeedback({
   showReveal?: boolean;
   showResult?: boolean;
 }) {
+  const end = useRevealInPanel<HTMLSpanElement>(solver.state);
   return (
     <>
       {solver.state === 'solve' && solver.hints && solver.hintLevel >= 1 && <p className="coach-hint">💡 {solver.hints.idea}</p>}
@@ -323,7 +349,42 @@ export function SolverFeedback({
           <p className="coach-text">{success}</p>
         </div>
       )}
+      <span ref={end} />
     </>
+  );
+}
+
+function QuizCard({ step, picked, onPick }: { step: QuizStep; picked: number | null; onPick: (i: number) => void }) {
+  const chosen = picked !== null ? step.options[picked] : null;
+  const why = useRevealInPanel<HTMLParagraphElement>(picked);
+  return (
+    <div className="coach-card">
+      <div className="coach-top">
+        <span className="coach-step">{STEP_LABEL.quiz}</span>
+      </div>
+      <h3 className="coach-title">{step.title}</h3>
+      <p className="coach-text">{step.text}</p>
+      <div className="quiz-options">
+        {step.options.map((o, i) => (
+          <button
+            key={o.label}
+            className={`quiz-option ${picked === i ? (o.correct ? 'right' : 'wrong') : ''}`}
+            onClick={() => {
+              onPick(i);
+              playSound(o.correct ? 'correct' : 'wrong');
+            }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {chosen && (
+        <p ref={why} className={`coach-text ${chosen.correct ? '' : 'wrong-text'}`}>
+          <b>{chosen.correct ? 'Yes. ' : 'Not the best. '}</b>
+          {chosen.why}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -8,16 +8,35 @@ import { it } from 'vitest';
 import { customBot } from '../lib/bots/bots';
 import { chooseBotMove } from '../lib/bots/brain';
 import { setOpeningBook } from '../lib/chess/openings';
-import { lineMaterial } from '../lib/chess/tactics';
+import { lineMaterial, moveMotifs, sacrificeAmount, type MotifKind } from '../lib/chess/tactics';
 import { epd, playUci } from '../lib/chess/utils';
 import type { Engine } from '../lib/engine/engine';
 import type { PvLine } from '../lib/engine/uci';
-import { tagPuzzle } from '../lib/learn/tags';
+import { tagPuzzle, type PuzzleTheme } from '../lib/learn/tags';
 import { puzzleRating, type TacticPuzzle } from '../lib/learn/puzzles';
 import { expectedFor } from '../lib/review/winprob';
 import { nodeEngine } from './nodeEngine';
 
 const OUT = fileURLToPath(new URL('../../public/puzzles.json', import.meta.url));
+const TACTIC_MOTIFS: MotifKind[] = ['fork', 'pin', 'skewer', 'discovered', 'discoveredCheck'];
+const PER_GAME = 3;
+const RICH: PuzzleTheme[] = [
+  'fork',
+  'pin',
+  'skewer',
+  'discovered',
+  'doubleCheck',
+  'removeDefender',
+  'setup',
+  'sacrifice',
+  'promotion',
+  'mateIn2',
+  'mateIn3',
+  'backRankMate',
+  'smotheredMate',
+];
+/** Positions per game sent to the engine. */
+const MAX_PROBES = 40;
 
 const ep = (l: PvLine | undefined, c: Color) => (l ? expectedFor(l.score, c) : 0);
 const isMateFor = (l: PvLine | undefined, c: Color) => !!l && l.score.type === 'mate' && l.score.value > 0 === (c === 'w');
@@ -57,12 +76,12 @@ async function solve(ana: Engine, fen: string, solver: Color, first: PvLine[]): 
     playUci(chess, best.pv[0]);
     if (chess.isGameOver()) break;
     // The puzzle may end once the gain is banked and the next move isn't forced.
-    const reply = await ana.analyse({ fen: chess.fen(), limits: { depth: 16 }, multipv: 1 });
+    const reply = await ana.analyse({ fen: chess.fen(), limits: { depth: 16, movetime: 2000 }, multipv: 1 });
     const r = reply.lines[0]?.pv[0];
     if (!r) break;
     const probe = new Chess(chess.fen());
     playUci(probe, r);
-    const next = await ana.analyse({ fen: probe.fen(), limits: { depth: 16 }, multipv: 2 });
+    const next = await ana.analyse({ fen: probe.fen(), limits: { depth: 16, movetime: 2000 }, multipv: 2 });
     if (!uniqueBest(next.lines, solver) || step === 3) break;
     line.push(r);
     playUci(chess, r);
@@ -90,34 +109,47 @@ it.skipIf(!process.env.PUZZLE_GEN)('generate puzzles', { timeout: 6 * 3_600_000 
     const ana = nodeEngine({ Hash: 32 });
     while (started < games) {
       const g = started++;
-      const eloW = 900 + Math.floor(Math.random() * 1100);
-      const eloB = 900 + Math.floor(Math.random() * 1100);
+      const eloW = 500 + Math.floor(Math.random() * 1000);
+      const eloB = 500 + Math.floor(Math.random() * 1000);
       const moves = await playGame(bot, book, eloW, eloB);
-      // Quick pass: evaluation of every position.
       const chess = new Chess();
       const fens = [chess.fen()];
       for (const u of moves) {
         playUci(chess, u);
         fens.push(chess.fen());
       }
-      const quick: (PvLine | undefined)[] = [];
-      for (const f of fens) quick.push((await ana.analyse({ fen: f, limits: { depth: 10 }, multipv: 1 })).lines[0]);
       let made = 0;
-      if (process.env.PG_DEBUG) process.stdout.write('\n' + quick.map((l, i) => `${i}:${l?.score.type}${l?.score.value}`).join(' ') + '\n');
       const dbg = { cand: 0, deep: 0, line: 0, mat: 0 };
-      for (let i = 8; i < fens.length - 1; i++) {
+      let probes = 0;
+      for (let i = 8; i < fens.length - 1 && made < PER_GAME && probes < MAX_PROBES; i++) {
         const solver: Color = fens[i].split(' ')[1] as Color;
-        const before = ep(quick[i - 1], solver);
-        const after = ep(quick[i], solver);
-        if (after < 0.68 || after - before < 0.2 || before > 0.75) continue;
         if (seen.has(epd(fens[i]))) continue;
+        // Only positions where some move is a real tactic (or mates) go to the engine.
+        const legal = new Chess(fens[i]).moves({ verbose: true });
+        const tactical = new Set(
+          legal
+            .filter((m) => {
+              if (m.san.endsWith('#')) return true;
+              const u = m.from + m.to + (m.promotion ?? '');
+              // A "fork" by a piece that is simply captured is no tactic.
+              if (!m.san.includes('+') && sacrificeAmount(fens[i], u).amount > 0) return false;
+              return moveMotifs(fens[i], u).some((x) => TACTIC_MOTIFS.includes(x.kind));
+            })
+            .map((m) => m.from + m.to + (m.promotion ?? '')),
+        );
+        if (!tactical.size) continue;
         dbg.cand++;
-        const deep = await ana.analyse({ fen: fens[i], limits: { depth: 18 }, multipv: 2 });
-        if (ep(deep.lines[0], solver) < 0.68) continue;
+        // Cheap pre-check: the side to move must be winning now but not a move ago.
+        const quick = (await ana.analyse({ fen: fens[i], limits: { depth: 8 }, multipv: 1 })).lines[0];
+        if (!quick || ep(quick, solver) < 0.65) continue;
+        const prev = (await ana.analyse({ fen: fens[i - 1], limits: { depth: 8 }, multipv: 1 })).lines[0];
+        if (prev && ep(prev, solver) > 0.6) continue;
+        probes++;
+        const deep = await ana.analyse({ fen: fens[i], limits: { depth: 14, movetime: 1500 }, multipv: 2 });
+        const best = deep.lines[0];
+        if (!best || ep(best, solver) < 0.68) continue;
         dbg.deep++;
         const line = await solve(ana, fens[i], solver, deep.lines);
-        if (process.env.PG_DEBUG)
-          process.stdout.write(`\nCAND ${fens[i]} ${deep.lines.map((l) => `${l.pv[0]} ${l.score.type}${l.score.value}`).join(' | ')} -> ${line}\n`);
         if (!line) continue;
         dbg.line++;
         const material = lineMaterial(fens[i], line, solver, 12);
@@ -128,8 +160,8 @@ it.skipIf(!process.env.PUZZLE_GEN)('generate puzzles', { timeout: 6 * 3_600_000 
         dbg.mat++;
         const themes = tagPuzzle(fens[i], line);
         if (!themes.length) continue;
-        // Free pieces are common and easy: keep only a few of them.
-        if (themes.length === 1 && themes[0] === 'hanging' && Math.random() > 0.15) continue;
+        // Free pieces and plain mates in one are common: keep only a few.
+        if (!themes.some((t) => RICH.includes(t)) && Math.random() > 0.2) continue;
         seen.add(epd(fens[i]));
         const p: TacticPuzzle = {
           id: `g${Date.now().toString(36)}${w}${made}`,

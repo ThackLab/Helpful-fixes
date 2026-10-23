@@ -45,6 +45,16 @@ describe('curriculum', () => {
           for (const m of step.marks ?? []) expect(SQUARE.test(m), `${where}: mark ${m}`).toBe(true);
         }
         for (const uci of linesOf(step)) expect(playUci(chess, uci), `${where}: illegal ${uci} in ${chess.fen()}`).toBeTruthy();
+        if (step.kind === 'quiz') {
+          expect(
+            step.options.some((o) => o.correct),
+            `${where}: no correct option`,
+          ).toBe(true);
+          for (const o of step.options) {
+            if (o.uci) expect(playUci(new Chess(step.fen), o.uci), `${where}: illegal option ${o.uci}`).toBeTruthy();
+            for (const a of o.arrows ?? []) expect(SQUARE.test(a.replace(/^[rby]:/, '').slice(2, 4)), `${where}: arrow ${a}`).toBe(true);
+          }
+        }
         if (step.kind === 'puzzle') {
           expect(step.line.length % 2, `${where}: line must end with the solver's move`).toBe(1);
           if (step.anyMate) expect(chess.isCheckmate(), `${where}: line should end in mate`).toBe(true);

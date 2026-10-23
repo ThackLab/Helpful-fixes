@@ -1855,6 +1855,33 @@ cg-board square.hl-key {
   color: #5d8c32;
 }
 
+.quiz-options {
+  display: grid;
+  gap: 6px;
+}
+
+.quiz-option {
+  text-align: left;
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 2px solid #e3e1dd;
+  background: #f7f6f4;
+  color: #262421;
+  cursor: pointer;
+}
+
+.quiz-option.right {
+  border-color: var(--accent);
+  background: #eef6e4;
+}
+
+.quiz-option.wrong {
+  border-color: #e0806f;
+  background: #fbeeeb;
+}
+
 .course-link {
   display: inline-block;
   margin-top: 6px;

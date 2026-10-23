@@ -118,6 +118,9 @@ export function GamesPage() {
     <div className="page">
       <div className="row" style={{ marginBottom: 14 }}>
         <h1 style={{ margin: 0 }}>Games</h1>
+        <button className="btn small" onClick={() => navigate('/import')}>
+          📥 Import
+        </button>
         <span className="spacer" />
         <input placeholder="Search players or openings" value={q} onChange={(e) => setQ(e.target.value)} />
         <Segmented

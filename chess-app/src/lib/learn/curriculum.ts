@@ -48,11 +48,20 @@ export interface DrillStep {
   success: string;
 }
 
-export type LessonStep = InfoStep | WalkStep | PuzzleStep | DrillStep;
+/** Multiple choice. Options with a move show it on the board when picked. */
+export interface QuizStep {
+  kind: 'quiz';
+  title: string;
+  text: string;
+  fen: string;
+  options: { label: string; uci?: string; correct?: boolean; why: string; arrows?: string[] }[];
+}
+
+export type LessonStep = InfoStep | WalkStep | PuzzleStep | DrillStep | QuizStep;
 
 export interface Lesson {
   id: string;
-  group: 'Tactics' | 'Checkmate patterns' | 'Endgames';
+  group: 'Tactics' | 'Checkmate patterns' | 'Openings' | 'Endgames';
   title: string;
   icon: string;
   summary: string;
@@ -66,6 +75,62 @@ export interface Lesson {
 }
 
 export const LESSONS: Lesson[] = [
+  {
+    id: 'cct',
+    group: 'Tactics',
+    title: 'Checks, captures, threats',
+    icon: '🔎',
+    summary: 'The habit that finds tactics and stops blunders.',
+    rule: 'Look at checks, captures and threats first, for both sides, before every move.',
+    spot: [
+      'Every move: list your checks, then your captures, then moves that attack something.',
+      'After every opponent move: what does it attack, and what did it stop defending?',
+      'Before you press: which of your pieces will be undefended after your move?',
+    ],
+    themes: ['mateIn1', 'mateIn2', 'hanging'],
+    steps: [
+      {
+        kind: 'info',
+        title: 'Forcing moves first',
+        text: 'Strong players don’t look at every move. They start with the forcing ones, because those leave the opponent few replies, so you can calculate them: first checks, then captures, then threats (moves that attack something). Here White’s queen and bishop both aim at f7, which only the king defends.',
+        fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',
+        arrows: ['h5f7', 'c4f7'],
+        marks: ['f7'],
+      },
+      {
+        kind: 'puzzle',
+        title: 'Start with the checks',
+        text: 'White to move. Black has just played ...Nf6, ignoring the threat. Which forcing move wins?',
+        fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',
+        line: ['h5f7'],
+        anyMate: true,
+        hint: 'Which of your moves is both a check and a capture?',
+        success: 'Qxf7# is a check and a capture at once: Scholar’s mate. Black’s ...Nf6 developed a piece but missed what White was threatening.',
+      },
+      {
+        kind: 'quiz',
+        title: 'What does their move threaten?',
+        text: 'Black has just played ...Qg5. What is it threatening?',
+        fen: 'r1b1kbnr/pppp1ppp/8/4N1q1/2BnP3/8/PPPP1PPP/RNBQK2R w KQkq - 1 5',
+        options: [
+          { label: 'Only ...Qxg2, going after the rook on h1', why: 'That is one threat, but follow the queen’s other lines too.' },
+          {
+            label: 'Two things: ...Qxe5 and ...Qxg2',
+            correct: true,
+            why: 'The queen attacks the knight on e5 and the pawn on g2 at once: a double attack. White can’t meet both, so the previous move Nxe5? was the real mistake, because it walked into this fork.',
+            arrows: ['r:g5e5', 'r:g5g2'],
+          },
+          { label: 'Nothing: it’s just developing the queen', why: 'Always ask what the last move attacks. Here the queen hits two things.' },
+        ],
+      },
+      {
+        kind: 'info',
+        title: 'The ten-second blunder check',
+        text: 'Before you move, ask three questions. What did their last move change: is anything of mine attacked now? After my move, which of my pieces are undefended? Can they answer with a check, a capture or a fork? It takes ten seconds, and it saves most games lost below 1500.',
+        fen: 'r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6',
+      },
+    ],
+  },
   {
     id: 'forks',
     group: 'Tactics',
@@ -611,6 +676,92 @@ export const LESSONS: Lesson[] = [
     ],
   },
   {
+    id: 'opening-principles',
+    group: 'Openings',
+    title: 'Opening principles',
+    icon: '🏁',
+    summary: 'Centre, development, king safety, and not wasting time.',
+    rule: 'Fight for the centre, develop a new piece with each move, and castle early.',
+    spot: [
+      'Count your developed pieces against your opponent’s.',
+      'Moving the queen early, or the same piece twice, usually loses time.',
+      'Castle before you start an attack, and before you open the centre.',
+    ],
+    themes: [],
+    steps: [
+      {
+        kind: 'info',
+        title: 'Four goals',
+        text: 'In the opening: 1) Control the centre (e4, d4, e5, d5) with pawns and pieces. 2) Develop your knights and bishops quickly, usually knights first. 3) Castle early, so your king is safe and a rook comes towards the centre. 4) Don’t waste moves: avoid early queen trips, moving the same piece twice, and pawn moves on the edge.',
+        fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3',
+        marks: ['d4', 'e4', 'd5', 'e5'],
+      },
+      {
+        kind: 'quiz',
+        title: 'Your second move',
+        text: 'After 1.e4 e5, which move follows the opening principles best?',
+        fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+        options: [
+          { label: 'Nf3', uci: 'g1f3', correct: true, why: 'It develops a piece towards the centre and attacks e5 at the same time.' },
+          {
+            label: 'Qh5',
+            uci: 'd1h5',
+            why: 'An early queen trip. It attacks e5 and f7, but after ...Nc6, ...g6 and ...Nf6 the queen gets chased around and White loses time.',
+          },
+          { label: 'h4', uci: 'h2h4', why: 'A pawn move on the edge does nothing for the centre or for development.' },
+        ],
+      },
+      {
+        kind: 'quiz',
+        title: 'Meet the early queen',
+        text: 'White threatens Qxf7#. What is the best way to stop it?',
+        fen: 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3',
+        options: [
+          {
+            label: '...g6',
+            uci: 'g7g6',
+            correct: true,
+            why: 'It blocks the queen’s path to f7 and attacks the queen, so Black gains time. The bishop can follow to g7.',
+          },
+          {
+            label: '...Nf6',
+            uci: 'g8f6',
+            why: 'It develops a piece, but loses at once to Qxf7#. Check your opponent’s threats before developing.',
+            arrows: ['r:h5f7'],
+          },
+          {
+            label: '...Qe7',
+            uci: 'd8e7',
+            correct: true,
+            why: 'That defends f7 too, but the queen blocks the f8 bishop. ...g6 is more useful because it gains time against the queen.',
+          },
+        ],
+      },
+      {
+        kind: 'quiz',
+        title: 'Time to castle',
+        text: 'Both sides have developed. What is White’s most useful move?',
+        fen: 'r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6',
+        options: [
+          { label: 'O-O', uci: 'e1g1', correct: true, why: 'King safety first, and the rook moves towards the centre where it will be useful.' },
+          {
+            label: 'Ng5',
+            uci: 'f3g5',
+            why: 'It moves an already developed piece again to attack f7. After ...O-O it has no follow-up and has to go back.',
+          },
+          { label: 'Kf1', uci: 'e1f1', why: 'Walking the king gives up castling, and the rook on h1 stays stuck.' },
+        ],
+      },
+      {
+        kind: 'info',
+        title: 'What your reviews look for',
+        text: 'Your game reviews point out the classic opening mistakes: bringing the queen out early, moving the same piece twice, pushing pawns on the edge, and leaving the king in the centre. The “Lessons from this game” section shows which ones you make most often.',
+        fen: 'rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3',
+        marks: ['f3'],
+      },
+    ],
+  },
+  {
     id: 'queen-mate',
     group: 'Endgames',
     title: 'Mate with the queen',
@@ -706,7 +857,7 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
-export const LESSON_GROUPS: Lesson['group'][] = ['Tactics', 'Checkmate patterns', 'Endgames'];
+export const LESSON_GROUPS: Lesson['group'][] = ['Tactics', 'Checkmate patterns', 'Openings', 'Endgames'];
 
 export const findLesson = (id: string) => LESSONS.find((l) => l.id === id);
 
@@ -716,11 +867,18 @@ export const LESSON_FOR_THEME: Record<string, string> = {
   pin: 'pins',
   skewer: 'skewers',
   discovered: 'discovered',
-  hanging: 'loose-pieces',
+  hanging: 'cct',
   backRank: 'back-rank',
   missedMate: 'smothered',
   exchanges: 'loose-pieces',
-  missedChance: 'fork-setups',
+  missedChance: 'cct',
+  missedRecapture: 'cct',
+  earlyQueen: 'opening-principles',
+  samePieceTwice: 'opening-principles',
+  development: 'opening-principles',
+  flankPawns: 'opening-principles',
+  kingSafety: 'opening-principles',
+  fPawn: 'opening-principles',
   endgameKing: 'opposition',
   passedPawn: 'opposition',
 };
