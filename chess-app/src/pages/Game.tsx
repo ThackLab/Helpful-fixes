@@ -281,7 +281,13 @@ export function GamePage() {
   return (
     <div className="game-layout">
       <div className={`board-column ${game.options.evalBar ? 'with-evalbar' : ''}`}>
-        <PlayerBar {...playerFor(topColor)} fen={position.fen} color={topColor} clock={<ClockView game={game} color={topColor} />} />
+        <PlayerBar
+          {...playerFor(topColor)}
+          fen={position.fen}
+          startFen={game.startFen}
+          color={topColor}
+          clock={<ClockView game={game} color={topColor} />}
+        />
         <div className="board-row">
           {game.options.evalBar && <EvalBar score={lastEval} flipped={orientation === 'black'} />}
           <Board
@@ -298,7 +304,13 @@ export function GamePage() {
             viewOnly={!position.live && playing}
           />
         </div>
-        <PlayerBar {...playerFor(bottomColor)} fen={position.fen} color={bottomColor} clock={<ClockView game={game} color={bottomColor} />} />
+        <PlayerBar
+          {...playerFor(bottomColor)}
+          fen={position.fen}
+          startFen={game.startFen}
+          color={bottomColor}
+          clock={<ClockView game={game} color={bottomColor} />}
+        />
       </div>
 
       <div className="side-panel">

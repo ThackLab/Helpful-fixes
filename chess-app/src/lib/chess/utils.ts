@@ -93,23 +93,25 @@ export function nonPawnPieces(chess: Chess): number {
   return n;
 }
 
-/** Captured pieces per side, relative to the standard starting material. */
-export function capturedPieces(fen: string): { w: PieceSymbol[]; b: PieceSymbol[]; diff: number } {
-  const start: Record<PieceSymbol, number> = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
-  const counts = { w: { ...start }, b: { ...start } };
-  const board = fen.split(' ')[0];
-  for (const ch of board) {
-    if (!/[a-zA-Z]/.test(ch)) continue;
-    const color = ch === ch.toUpperCase() ? 'w' : 'b';
-    counts[color][ch.toLowerCase() as PieceSymbol]--;
-  }
-  // `w` lists pieces White has captured (i.e. missing black pieces).
+/** Captured pieces per side, relative to the material in `baseFen` (the game's start position). */
+export function capturedPieces(fen: string, baseFen: string = START_FEN): { w: PieceSymbol[]; b: PieceSymbol[]; diff: number } {
+  const zero = (): Record<PieceSymbol, number> => ({ p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 });
+  const tally = (f: string) => {
+    const t = { w: zero(), b: zero() };
+    for (const ch of f.split(' ')[0]) {
+      if (!/[a-zA-Z]/.test(ch)) continue;
+      t[ch === ch.toUpperCase() ? 'w' : 'b'][ch.toLowerCase() as PieceSymbol]++;
+    }
+    return t;
+  };
+  const start = tally(baseFen);
+  const now = tally(fen);
   const order: PieceSymbol[] = ['q', 'r', 'b', 'n', 'p'];
-  const list = (c: 'w' | 'b') => order.flatMap((t) => Array(Math.max(0, counts[c][t])).fill(t) as PieceSymbol[]);
-  const bMissing = list('b');
-  const wMissing = list('w');
-  const val = (l: PieceSymbol[]) => l.reduce((s, t) => s + PIECE_VALUE[t], 0);
-  return { w: bMissing, b: wMissing, diff: val(bMissing) - val(wMissing) };
+  // Promotions can make a side gain material; only count what is actually missing.
+  const missing = (c: 'w' | 'b') => order.flatMap((t) => Array(Math.max(0, start[c][t] - now[c][t])).fill(t) as PieceSymbol[]);
+  const value = (c: 'w' | 'b') => order.reduce((s, t) => s + PIECE_VALUE[t] * now[c][t], 0);
+  // `w` lists pieces White has captured (i.e. missing black pieces).
+  return { w: missing('b'), b: missing('w'), diff: value('w') - value('b') };
 }
 
 export function legalDests(chess: Chess): Map<Square, Square[]> {
@@ -142,8 +144,4 @@ export function validateFen(fen: string): string | null {
   } catch (e) {
     return e instanceof Error ? e.message : 'Invalid FEN';
   }
-}
-
-export function squareName(sq: string) {
-  return sq;
 }

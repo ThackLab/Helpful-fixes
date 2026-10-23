@@ -163,6 +163,29 @@ export function SettingsPage() {
         </section>
 
         <section className="card">
+          <h2>AI coach (optional)</h2>
+          <p className="muted" style={{ fontSize: '0.88rem' }}>
+            Ask follow-up questions about your reviewed games in plain English. Answers come from Claude ({'claude-opus-5-5'}), grounded in the
+            Stockfish review. You need your own key from{' '}
+            <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer">
+              console.anthropic.com
+            </a>
+            ; usage is billed to your Anthropic account (typically a few cents per question). The key is stored only in this browser and sent only to
+            the Anthropic API.
+          </p>
+          <Row title="Anthropic API key">
+            <input
+              type="password"
+              autoComplete="off"
+              placeholder="sk-ant-…"
+              value={s.aiCoachKey}
+              onChange={(e) => s.set({ aiCoachKey: e.target.value.trim() })}
+              style={{ width: 220 }}
+            />
+          </Row>
+        </section>
+
+        <section className="card">
           <h2>Your data</h2>
           <p className="muted" style={{ fontSize: '0.88rem' }}>
             Games, reviews and practice positions are stored only in this browser. Back them up to move to another device.

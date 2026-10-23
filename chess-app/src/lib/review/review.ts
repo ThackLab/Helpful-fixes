@@ -336,7 +336,8 @@ export function summariseGame(r: GameReview, userColor?: Color): string {
   const sides: Color[] = userColor ? [userColor, userColor === 'w' ? 'b' : 'w'] : ['w', 'b'];
   for (const c of sides) {
     const s = c === 'w' ? r.white : r.black;
-    out.push(`${name(c)} played with ${pct(s.accuracy)} accuracy (performance ≈ ${s.estimatedRating}).`);
+    const ownMoves = r.moves.filter((m) => m.color === c && m.classification !== 'book').length;
+    out.push(`${name(c)} played with ${pct(s.accuracy)} accuracy${ownMoves >= 8 ? ` (performance ≈ ${s.estimatedRating})` : ''}.`);
   }
   if (r.opening) {
     const lastBook = r.moves.filter((m) => m.classification === 'book').at(-1);

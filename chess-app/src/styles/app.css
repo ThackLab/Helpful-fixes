@@ -950,6 +950,14 @@ cg-board square.hl-key {
   font-size: 0.85rem;
 }
 
+.engine-head .segmented {
+  flex-wrap: nowrap;
+}
+
+.engine-head .segmented button {
+  padding: 3px 8px;
+}
+
 .engine-lines {
   display: flex;
   flex-direction: column;

@@ -5,6 +5,7 @@ import type { Key } from 'chessground/types';
 import { Board, type PromotionPiece } from '../components/Board';
 import { ClassIcon, boardBadge } from '../components/ClassIcon';
 import { MoveList } from '../components/MoveList';
+import { AiCoachChat } from '../components/AiCoachChat';
 import { EvalBar, EvalGraph, PlayerBar, ScoreChip, Segmented, type GraphPoint } from '../components/Widgets';
 import { getAnalysisEngine } from '../lib/engine/manager';
 import { formatLine, legalDests, moveToUci, playUci } from '../lib/chess/utils';
@@ -13,8 +14,10 @@ import { playSound, soundForSan } from '../lib/sound';
 import { evalScore } from '../lib/review/classify';
 import { CLASS_META, CLASS_ORDER, type Classification, type GameReview, type Phase, type ReviewedMove } from '../lib/review/types';
 import { expectedFor, scoreToExpected } from '../lib/review/winprob';
-import { getGame, getReview, onDbChange, type GameRecord } from '../lib/storage/db';
-import { useReviewer } from '../state/reviewer';
+import { getGame, getReview, onDbChange, saveGame, savePuzzles, saveReview, type GameRecord } from '../lib/storage/db';
+import { summariseGame } from '../lib/review/review';
+import { puzzlesFrom, useReviewer } from '../state/reviewer';
+import { findBot } from '../lib/bots/bots';
 import type { Score } from '../lib/engine/uci';
 
 const SUMMARY_CLASSES: Classification[] = CLASS_ORDER.filter((c) => c !== 'forced');
@@ -188,6 +191,17 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     setRetry({ ply: cur, tried: uci, state: ok ? 'correct' : 'wrong' });
   };
 
+  const claimSide = async (c: 'w' | 'b') => {
+    if (!game) return;
+    await saveGame({ ...game, userColor: c, white: { ...game.white, isUser: c === 'w' }, black: { ...game.black, isUser: c === 'b' } });
+    if (review) {
+      await saveReview(gameId, { ...review, summary: summariseGame(review, c) });
+      await savePuzzles(puzzlesFrom(review, gameId, c));
+    }
+    setFocus(c);
+    setFlipped(c === 'b');
+  };
+
   if (game === undefined) return <div className="page muted">Loading…</div>;
   if (game === null)
     return (
@@ -209,11 +223,12 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     const s = summary(c);
     return (
       <PlayerBar
-        avatar={p.isUser ? '🙂' : p.botId ? '🤖' : c === 'w' ? '♔' : '♚'}
-        tint={p.isUser ? '#81b64c' : undefined}
+        avatar={p.isUser ? '🙂' : p.botId ? (findBot(p.botId)?.avatar ?? '🤖') : c === 'w' ? '♔' : '♚'}
+        tint={p.isUser ? '#81b64c' : p.botId ? findBot(p.botId)?.tint : undefined}
         name={p.name}
         elo={p.elo}
         fen={board?.fen ?? game.startFen}
+        startFen={game.startFen}
         color={c}
         clock={
           s ? (
@@ -297,6 +312,19 @@ export function ReviewPage({ gameId }: { gameId: string }) {
 
           {points.length > 1 && <EvalGraph points={points} current={cur + 1} onSelect={(i) => review && setCur(i - 1)} />}
 
+          {review && cur === -1 && !game.userColor && (
+            <div className="row card" style={{ marginTop: 12, padding: 10, background: 'var(--panel-2)' }}>
+              <span className="muted" style={{ fontSize: '0.88rem' }}>
+                Which side were you? (personalises the coach and adds your mistakes to Practice)
+              </span>
+              <button className="btn small" onClick={() => void claimSide('w')}>
+                White
+              </button>
+              <button className="btn small" onClick={() => void claimSide('b')}>
+                Black
+              </button>
+            </div>
+          )}
           {review && cur === -1 && <Overview review={review} game={game} focus={focus} setFocus={setFocus} onJump={setCur} />}
 
           {review && m && (
@@ -407,6 +435,12 @@ export function ReviewPage({ gameId }: { gameId: string }) {
 
           {review && (
             <div style={{ marginTop: 14 }}>
+              <AiCoachChat key={gameId} game={game} review={review} ply={cur} />
+            </div>
+          )}
+
+          {review && (
+            <div style={{ marginTop: 14 }}>
               <MoveList
                 sans={moves.map((x) => x.san)}
                 startFen={game.startFen}
@@ -462,6 +496,12 @@ export function ReviewPage({ gameId }: { gameId: string }) {
       </div>
     </div>
   );
+}
+
+/** Performance estimates from a handful of moves are noise, so only show them for real games. */
+function ratingText(review: GameReview, c: 'w' | 'b') {
+  const n = review.moves.filter((m) => m.color === c && m.classification !== 'book').length;
+  return n >= 8 ? (c === 'w' ? review.white : review.black).estimatedRating : '–';
 }
 
 function sanOf(fen: string, moves: string[]): string[] {
@@ -533,13 +573,13 @@ function Overview({
           </tr>
           <tr>
             <td className="n" style={{ fontSize: '1.1rem' }}>
-              {review.white.estimatedRating}
+              {ratingText(review, 'w')}
             </td>
             <td className="label muted" title="Estimated playing strength in this game">
               Game rating
             </td>
             <td className="n" style={{ fontSize: '1.1rem' }}>
-              {review.black.estimatedRating}
+              {ratingText(review, 'b')}
             </td>
           </tr>
           {SUMMARY_CLASSES.map((c) => (

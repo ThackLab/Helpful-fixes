@@ -19,6 +19,7 @@
     "format": "prettier --write src scripts *.ts *.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.132.1",
     "chess.js": "^1.4.0",
     "chessground": "^9.2.1",
     "idb-keyval": "^6.3.0",

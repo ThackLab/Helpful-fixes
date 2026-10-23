@@ -114,8 +114,8 @@ export function EvalGraph({
   );
 }
 
-export function Captured({ fen, color }: { fen: string; color: 'w' | 'b' }) {
-  const cap = capturedPieces(fen);
+export function Captured({ fen, color, startFen }: { fen: string; color: 'w' | 'b'; startFen?: string }) {
+  const cap = capturedPieces(fen, startFen);
   const list = color === 'w' ? cap.w : cap.b;
   const diff = color === 'w' ? cap.diff : -cap.diff;
   const victim = color === 'w' ? 'black' : 'white';
@@ -149,6 +149,7 @@ export function PlayerBar({
   name,
   elo,
   fen,
+  startFen,
   color,
   clock,
   extra,
@@ -158,6 +159,7 @@ export function PlayerBar({
   name: string;
   elo?: number | string;
   fen: string;
+  startFen?: string;
   color: 'w' | 'b';
   clock?: ReactNode;
   extra?: ReactNode;
@@ -173,7 +175,7 @@ export function PlayerBar({
           {elo !== undefined && <span className="player-elo">({elo})</span>}
           {extra}
         </div>
-        <Captured fen={fen} color={color} />
+        <Captured fen={fen} color={color} startFen={startFen} />
       </div>
       {clock}
     </div>

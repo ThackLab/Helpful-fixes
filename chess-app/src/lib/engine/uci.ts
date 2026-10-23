@@ -100,7 +100,8 @@ export function parseInfo(line: string, whiteToMove: boolean): PvLine | null {
 export function formatScore(score: Score | undefined, opts: { signed?: boolean } = {}): string {
   if (!score) return '…';
   if (score.type === 'mate') {
-    if (score.value === 0) return '#';
+    // |value| < 1 marks a position where mate has already been delivered.
+    if (Math.abs(score.value) < 1) return '#';
     return `${score.value > 0 ? '' : '-'}M${Math.abs(score.value)}`;
   }
   const v = score.value / 100;

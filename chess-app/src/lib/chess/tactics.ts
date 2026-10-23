@@ -236,8 +236,11 @@ export function moveMotifs(fenBefore: string, uci: string, recaptureSquare?: str
           ? `the ${PIECE_NAME[all[0].type]} on ${all[0].square}`
           : all.every((t) => t.type === all[0].type)
             ? `the ${plural(all[0].type)} on ${all.map((t) => t.square).join(' and ')}`
-            : `the ${listNames(all)}`;
-      out.push({ kind: 'attacks', text: `attacks ${desc}`, squares: [m.to, ...all.map((t) => t.square)] });
+            : all.map((t) => `the ${PIECE_NAME[t.type]} on ${t.square}`).join(' and ');
+      // Hitting two loose targets at once is a double attack: one of them usually falls.
+      if (all.length >= 2 && forkTargets.length >= 1)
+        out.push({ kind: 'fork', text: `makes a double attack on ${desc}`, squares: [m.to, ...all.map((t) => t.square)] });
+      else out.push({ kind: 'attacks', text: `attacks ${desc}`, squares: [m.to, ...all.map((t) => t.square)] });
     }
   }
 
