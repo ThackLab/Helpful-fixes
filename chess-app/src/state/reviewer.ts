@@ -6,7 +6,7 @@ import { EnginePool, defaultPoolSize } from '../lib/engine/manager';
 import { loadOpeningBook } from '../lib/chess/openings';
 import { analysePositions, buildReview } from '../lib/review/review';
 import type { GameReview, PositionEval } from '../lib/review/types';
-import { getGame, getReview, newId, saveReview, savePuzzles, type Puzzle } from '../lib/storage/db';
+import { getGame, getReview, saveReview, savePuzzles, type Puzzle } from '../lib/storage/db';
 import { useSettings } from './settings';
 
 export interface ReviewJob {
@@ -146,4 +146,3 @@ export const useReviewer = create<ReviewerStore>()((set, get) => ({
   cancel: (gameId) => controllers.get(gameId)?.abort(),
 }));
 
-export { newId };
