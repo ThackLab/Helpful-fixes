@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DrawShape } from 'chessground/draw';
 import { Board, type BoardHandle, type PromotionPiece } from '../components/Board';
 import { EvalBar, Modal, PlayerBar, formatClock, toast } from '../components/Widgets';
-import { MoveList } from '../components/MoveList';
+import { MoveList, MoveStrip } from '../components/MoveList';
 import { botAcceptsDraw, chooseBotMove, thinkTime } from '../lib/bots/brain';
-import { botLine } from '../lib/bots/bots';
 import { getAnalysisEngine, getBotEngine } from '../lib/engine/manager';
 import { scoreToCp, type Score } from '../lib/engine/uci';
 import { getOpeningBook, loadOpeningBook } from '../lib/chess/openings';
@@ -43,7 +42,6 @@ export function GamePage() {
   const [flipped, setFlipped] = useState(false);
   const [viewPly, setViewPly] = useState<number | null>(null);
   const [hint, setHint] = useState<{ ply: number; uci: string } | null>(null);
-  const [thinking, setThinking] = useState(false);
   const [lastEval, setLastEval] = useState<Score | undefined>();
   const [showEnd, setShowEnd] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
@@ -57,20 +55,11 @@ export function GamePage() {
   const chess = useMemo(() => (game ? chessOf(game) : null), [game]);
   const bot = game ? liveBot(game) : null;
 
-  // Greeting.
-  useEffect(() => {
-    if (game && bot && game.chat.length === 0 && game.status === 'playing') store.getState().say('bot', botLine(bot, 'greet'));
-  }, [game?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Bot moves.
   useEffect(() => {
-    if (!game || !chess || !bot || game.status !== 'playing' || chess.turn() === game.userColor) {
-      setThinking(false);
-      return;
-    }
+    if (!game || !chess || !bot || game.status !== 'playing' || chess.turn() === game.userColor) return;
     let cancelled = false;
     const key = `${game.id}:${game.moves.length}`;
-    setThinking(true);
     const started = Date.now();
     (async () => {
       try {
@@ -86,18 +75,10 @@ export function GamePage() {
         if (store.getState().applyMove(mv.uci)) {
           playSound(soundForSan(mv.san));
           const after = store.getState().game;
-          if (after?.status === 'playing') {
-            requestAnimationFrame(() => boardRef.current?.playPremove());
-            if (mv.score && bot.style !== 'machine') {
-              const botCp = (game.userColor === 'w' ? -1 : 1) * scoreToCp(mv.score);
-              if (botCp > 250 && Math.random() < 0.08) store.getState().say('bot', botLine(bot, 'botAdvantage'));
-            }
-          }
+          if (after?.status === 'playing') requestAnimationFrame(() => boardRef.current?.playPremove());
         }
       } catch (e) {
         console.error(e);
-      } finally {
-        if (!cancelled) setThinking(false);
       }
     })();
     return () => {
@@ -122,7 +103,7 @@ export function GamePage() {
     return () => clearInterval(id);
   }, [game?.id, game?.status, game?.timeControl]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Game end: sound, chat, optional auto-review.
+  // Game end: sound and the result dialog (the review starts automatically below).
   const prevStatus = useRef(game?.status);
   useEffect(() => {
     if (!game || !bot) return;
@@ -130,8 +111,6 @@ export function GamePage() {
       playSound('end');
       setShowEnd(true);
       setViewPly(null);
-      const userWon = (game.result === '1-0') === (game.userColor === 'w') && game.result !== '1/2-1/2';
-      store.getState().say('bot', botLine(bot, game.result === '1/2-1/2' ? 'draw' : userWon ? 'userWins' : 'botWins'));
     }
     prevStatus.current = game.status;
   }, [game?.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -230,7 +209,6 @@ export function GamePage() {
       : { avatar: bot.avatar, tint: bot.tint, name: bot.name, elo: bot.elo };
   const playing = game.status === 'playing';
   const userToMove = playing && chess.turn() === userColor;
-  const lastChat = game.chat[game.chat.length - 1];
 
   const askHint = async () => {
     if (!userToMove) return;
@@ -245,13 +223,8 @@ export function GamePage() {
     const res = await getBotEngine().analyse({ fen: chess.fen(), limits: { depth: 12 }, options: { UCI_LimitStrength: false } });
     const s = res.lines[0]?.score;
     const botCp = s ? (userColor === 'w' ? -1 : 1) * scoreToCp(s) : 0;
-    if (botAcceptsDraw(botCp, game.moves.length, bot.elo)) {
-      store.getState().say('bot', 'I accept the draw.');
-      store.getState().finish('1/2-1/2', 'agreement');
-    } else {
-      store.getState().say('bot', 'No thanks, let’s play on.');
-      toast(`${bot.name} declined the draw`);
-    }
+    if (botAcceptsDraw(botCp, game.moves.length, bot.elo)) store.getState().finish('1/2-1/2', 'agreement');
+    else toast(`${bot.name} declined the draw`);
   };
 
   const resign = () => {
@@ -278,8 +251,14 @@ export function GamePage() {
   const endTitle = userScore === 1 ? 'You won!' : userScore === 0 ? `${bot.name} won` : 'Draw';
   const fromLabel = (t?: string) => (t ? `by ${t}` : '');
 
+  const currentIndex = (viewPly ?? game.moves.length) - 1;
+  const selectMove = (i: number) => setViewPly(i + 1 >= game.moves.length ? null : i + 1);
+  const back = () => setViewPly(Math.max(0, (viewPly ?? game.moves.length) - 1));
+  const forward = () => setViewPly((v) => (v === null || v + 1 >= game.moves.length ? null : v + 1));
+  const reviewId = game.savedId;
+
   return (
-    <div className="game-layout">
+    <div className="game-layout focus-screen play-screen">
       <div className={`board-column ${game.options.evalBar ? 'with-evalbar' : ''}`}>
         <PlayerBar
           {...playerFor(topColor)}
@@ -313,87 +292,70 @@ export function GamePage() {
         />
       </div>
 
-      <div className="side-panel">
-        <div className="panel-head">
-          <div className="avatar" style={{ background: bot.tint }}>
-            {bot.avatar}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="chat">
-              <div className="bubble" style={{ marginLeft: 6 }}>
-                {thinking && playing ? <span className="muted">{bot.name} is thinking…</span> : (lastChat?.text ?? botLine(bot, 'greet'))}
-              </div>
-            </div>
-          </div>
+      <div className="side-panel play-panel">
+        <div className="panel-body only-desktop">
+          <MoveList sans={game.sans} startFen={game.startFen} current={currentIndex} onSelect={selectMove} />
         </div>
-        <div className="panel-body">
-          <MoveList
-            sans={game.sans}
-            startFen={game.startFen}
-            current={(viewPly ?? game.moves.length) - 1}
-            onSelect={(i) => setViewPly(i + 1 >= game.moves.length ? null : i + 1)}
-          />
-          {game.status === 'over' && (
-            <div className="card" style={{ marginTop: 14, background: 'var(--panel-2)' }}>
+        <MoveStrip sans={game.sans} startFen={game.startFen} current={currentIndex} onSelect={selectMove} />
+        {!playing && (
+          <div className="game-over-bar">
+            <span>
               <b>{endTitle}</b> <span className="muted">{fromLabel(game.termination)}</span>
-              <div className="row" style={{ marginTop: 10 }}>
-                <button className="btn primary" onClick={() => game.savedId && navigate(`/review/${game.savedId}`)} disabled={!game.savedId}>
-                  ⭐ Game Review
-                </button>
-                <button className="btn" onClick={rematch}>
-                  Rematch
-                </button>
-                <button className="btn" onClick={() => navigate('/play')}>
-                  New bot
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="panel-foot">
-          <button className="icon-btn" title="Start (↑)" onClick={() => setViewPly(0)}>
-            ⏮
+            </span>
+            <button className="btn primary small" onClick={() => reviewId && navigate(`/review/${reviewId}`)} disabled={!reviewId}>
+              ⭐ Review
+            </button>
+          </div>
+        )}
+        <div className="play-controls">
+          <button className="ctl" onClick={back} aria-label="Previous move">
+            <span className="ctl-ico">◀</span>
           </button>
-          <button className="icon-btn" title="Back (←)" onClick={() => setViewPly(Math.max(0, (viewPly ?? game.moves.length) - 1))}>
-            ◀
+          <button className="ctl" onClick={forward} aria-label="Next move">
+            <span className="ctl-ico">▶</span>
           </button>
-          <button
-            className="icon-btn"
-            title="Forward (→)"
-            onClick={() => setViewPly((v) => (v === null || v + 1 >= game.moves.length ? null : v + 1))}
-          >
-            ▶
+          <button className="ctl" onClick={() => setFlipped((f) => !f)} aria-label="Flip board">
+            <span className="ctl-ico">⇅</span>
+            <span className="ctl-label">Flip</span>
           </button>
-          <button className="icon-btn" title="Live position (↓)" onClick={() => setViewPly(null)}>
-            ⏭
-          </button>
-          <button className="icon-btn" title="Flip board (f)" onClick={() => setFlipped((f) => !f)}>
-            ⇅
-          </button>
-          <span className="spacer" />
           {playing ? (
             <>
               {game.options.hints && (
-                <button className="btn small" onClick={askHint} disabled={!userToMove}>
-                  💡 Hint
+                <button className="ctl" onClick={askHint} disabled={!userToMove}>
+                  <span className="ctl-ico">💡</span>
+                  <span className="ctl-label">Hint</span>
                 </button>
               )}
               {game.options.takebacks && (
-                <button className="btn small" onClick={() => (store.getState().takeback(), setHint(null))} disabled={game.moves.length === 0}>
-                  ↶ Takeback
+                <button className="ctl" onClick={() => (store.getState().takeback(), setHint(null))} disabled={game.moves.length === 0}>
+                  <span className="ctl-ico">↶</span>
+                  <span className="ctl-label">Undo</span>
                 </button>
               )}
-              <button className="btn small" onClick={offerDraw} disabled={game.moves.length < 2}>
-                ½ Draw
+              <button className="ctl" onClick={offerDraw} disabled={game.moves.length < 2}>
+                <span className="ctl-ico">½</span>
+                <span className="ctl-label">Draw</span>
               </button>
-              <button className="btn small danger" onClick={() => setConfirmResign(true)}>
-                ⚑ Resign
+              <button className="ctl danger" onClick={() => setConfirmResign(true)}>
+                <span className="ctl-ico">⚑</span>
+                <span className="ctl-label">Resign</span>
               </button>
             </>
           ) : (
-            <button className="btn small" onClick={() => game.savedId && navigate(`/analysis?game=${game.savedId}`)} disabled={!game.savedId}>
-              🔬 Analyse
-            </button>
+            <>
+              <button className="ctl" onClick={() => reviewId && navigate(`/analysis?game=${reviewId}`)} disabled={!reviewId}>
+                <span className="ctl-ico">🔬</span>
+                <span className="ctl-label">Analyse</span>
+              </button>
+              <button className="ctl" onClick={rematch}>
+                <span className="ctl-ico">↻</span>
+                <span className="ctl-label">Rematch</span>
+              </button>
+              <button className="ctl" onClick={() => navigate('/play')}>
+                <span className="ctl-ico">＋</span>
+                <span className="ctl-label">New</span>
+              </button>
+            </>
           )}
         </div>
       </div>

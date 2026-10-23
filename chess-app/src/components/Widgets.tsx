@@ -119,10 +119,21 @@ export function Captured({ fen, color, startFen }: { fen: string; color: 'w' | '
   const list = color === 'w' ? cap.w : cap.b;
   const diff = color === 'w' ? cap.diff : -cap.diff;
   const victim = color === 'w' ? 'black' : 'white';
+  // Group identical pieces so the row reads like "pp nn b" rather than a smear.
+  const groups: { type: string; n: number }[] = [];
+  for (const p of list) {
+    const last = groups[groups.length - 1];
+    if (last && last.type === p) last.n++;
+    else groups.push({ type: p, n: 1 });
+  }
   return (
     <div className="captured">
-      {list.map((p, i) => (
-        <piece key={i} className={`${victim} ${ROLE[p]}`} />
+      {groups.reverse().map((g) => (
+        <span className="cap-group" key={g.type}>
+          {Array.from({ length: g.n }, (_, i) => (
+            <piece key={i} className={`${victim} ${ROLE[g.type]}`} />
+          ))}
+        </span>
       ))}
       {diff > 0 && <span className="diff">+{diff}</span>}
     </div>

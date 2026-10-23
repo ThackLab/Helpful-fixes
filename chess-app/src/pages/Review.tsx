@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { Board, type PromotionPiece } from '../components/Board';
 import { ClassIcon, boardBadge } from '../components/ClassIcon';
-import { MoveList } from '../components/MoveList';
+import { MoveList, MoveStrip } from '../components/MoveList';
 import { AiCoachChat } from '../components/AiCoachChat';
 import { EvalBar, EvalGraph, PlayerBar, ScoreChip, Segmented, type GraphPoint } from '../components/Widgets';
 import { getAnalysisEngine } from '../lib/engine/manager';
@@ -12,6 +12,9 @@ import { formatLine, legalDests, moveToUci, playUci } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
 import { playSound, soundForSan } from '../lib/sound';
 import { evalScore } from '../lib/review/classify';
+import { gameLessons, moveLesson, type GameLessons } from '../lib/review/lessons';
+import { hintsFor, refutationText } from '../lib/review/hints';
+import { bestIdeaSentence } from '../lib/review/explain';
 import { CLASS_META, CLASS_ORDER, type Classification, type GameReview, type Phase, type ReviewedMove } from '../lib/review/types';
 import { expectedFor, scoreToExpected } from '../lib/review/winprob';
 import { getGame, getReview, onDbChange, saveGame, savePuzzles, saveReview, type GameRecord } from '../lib/storage/db';
@@ -22,6 +25,17 @@ import type { Score } from '../lib/engine/uci';
 
 const SUMMARY_CLASSES: Classification[] = CLASS_ORDER.filter((c) => c !== 'forced');
 const BAD: Classification[] = ['inaccuracy', 'mistake', 'miss', 'blunder'];
+
+type RetryState = {
+  state: 'try' | 'correct' | 'wrong' | 'revealed';
+  tried?: string;
+  /** Why the tried move fails, from the engine's reply. */
+  refutation?: string | null;
+  checking?: boolean;
+  attempts: number;
+  hints?: number;
+};
+type Guided = { plies: number[]; idx: number; results: Record<number, 'first' | 'later' | 'revealed'>; done: boolean };
 
 function useGameAndReview(gameId: string) {
   const [game, setGame] = useState<GameRecord | null | undefined>(undefined);
@@ -44,11 +58,45 @@ function useGameAndReview(gameId: string) {
   return { game, review };
 }
 
+const moveName = (m: ReviewedMove) => `${Math.floor(m.ply / 2) + 1}${m.color === 'w' ? '.' : '...'} ${m.san}`;
+
+/** The coach comment without its closing "Best was ..." sentence, for when the best move gets its own section. */
+const withoutBest = (comment: string) => comment.replace(/\s*Best was [^]*$/, '');
+
 function PhaseBadge({ value }: { value: number | null }) {
   if (value === null) return <span className="faint">–</span>;
   const cls: Classification =
     value >= 90 ? 'best' : value >= 80 ? 'excellent' : value >= 70 ? 'good' : value >= 60 ? 'inaccuracy' : value >= 50 ? 'mistake' : 'blunder';
   return <ClassIcon cls={cls} size={24} title={`${value.toFixed(0)}% accuracy`} />;
+}
+
+function sanOf(fen: string, moves: string[]): string[] {
+  const c = new Chess(fen);
+  const out: string[] = [];
+  for (const u of moves) {
+    const mv = playUci(c, u);
+    if (!mv) break;
+    out.push(mv.san);
+  }
+  return out;
+}
+
+function recaptureAt(moves: ReviewedMove[], i: number): string | undefined {
+  const prev = i > 0 ? moves[i - 1] : undefined;
+  return prev && prev.san.includes('x') ? prev.uci.slice(2, 4) : undefined;
+}
+
+/** Ply index (within the line) that a token of a formatted line belongs to. */
+function tokenPly(tokens: string[], i: number): number {
+  let sans = 0;
+  for (let k = 0; k < i; k++) if (!/^\d+\.+$/.test(tokens[k])) sans++;
+  return sans;
+}
+
+/** Performance estimates from a handful of moves are noise, so only show them for real games. */
+function ratingText(review: GameReview, c: 'w' | 'b') {
+  const n = review.moves.filter((m) => m.color === c && m.classification !== 'book').length;
+  return n >= 8 ? (c === 'w' ? review.white : review.black).estimatedRating : '–';
 }
 
 export function ReviewPage({ gameId }: { gameId: string }) {
@@ -58,8 +106,10 @@ export function ReviewPage({ gameId }: { gameId: string }) {
   const [flipped, setFlipped] = useState(false);
   const [showBest, setShowBest] = useState(true);
   const [line, setLine] = useState<{ base: string; moves: string[]; idx: number } | null>(null);
-  const [retry, setRetry] = useState<{ ply: number; state: 'try' | 'correct' | 'wrong'; tried?: string; checking?: boolean } | null>(null);
+  const [retry, setRetry] = useState<RetryState | null>(null);
+  const [guided, setGuided] = useState<Guided | null>(null);
   const [focus, setFocus] = useState<'w' | 'b' | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (review === null && game) void useReviewer.getState().start(gameId);
@@ -72,33 +122,78 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     }
   }, [game?.userColor]);
 
-  const moves = review?.moves ?? [];
+  const moves = useMemo(() => review?.moves ?? [], [review]);
   const m: ReviewedMove | undefined = cur >= 0 ? moves[cur] : undefined;
 
-  // Reset auxiliary modes whenever we move.
-  useEffect(() => {
+  const lessons: GameLessons | null = useMemo(() => {
+    if (!review || !game) return null;
+    const tc = game.timeControl?.match(/^(\d+(?:\.\d+)?)\+/);
+    return gameLessons(review, {
+      userColor: focus ?? game.userColor,
+      result: game.result,
+      clocks: game.clocks,
+      initialMs: tc ? +tc[1] * 60_000 : undefined,
+    });
+  }, [review, game, focus]);
+
+  /** Moves to a ply, leaving any variation / retry. The panel text starts from the top. */
+  const go = useCallback(
+    (i: number) => {
+      setCur(Math.max(-1, Math.min(moves.length - 1, i)));
+      setLine(null);
+      setRetry(null);
+      bodyRef.current?.scrollTo({ top: 0 });
+    },
+    [moves.length],
+  );
+
+  const startGuided = () => {
+    if (!lessons?.practice.length) return;
+    const plies = lessons.practice;
+    setGuided({ plies, idx: 0, results: {}, done: false });
+    setCur(plies[0]);
     setLine(null);
+    setRetry({ state: 'try', attempts: 0 });
+    bodyRef.current?.scrollTo({ top: 0 });
+  };
+
+  const guidedStep = (idx: number) => {
+    if (!guided) return;
+    if (idx >= guided.plies.length) {
+      setGuided({ ...guided, done: true });
+      setCur(-1);
+      setRetry(null);
+      setLine(null);
+      return;
+    }
+    setGuided({ ...guided, idx });
+    setCur(guided.plies[idx]);
+    setLine(null);
+    setRetry({ state: 'try', attempts: 0 });
+    bodyRef.current?.scrollTo({ top: 0 });
+  };
+
+  const exitGuided = () => {
+    setGuided(null);
     setRetry(null);
-  }, [cur]);
+  };
 
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       if (e.key === 'ArrowRight') {
         if (line) setLine((l) => (l ? { ...l, idx: Math.min(l.moves.length, l.idx + 1) } : l));
-        else setCur((c) => Math.min(moves.length - 1, c + 1));
+        else if (!guided) go(cur + 1);
       } else if (e.key === 'ArrowLeft') {
         if (line) setLine((l) => (l ? { ...l, idx: Math.max(0, l.idx - 1) } : l));
-        else setCur((c) => Math.max(-1, c - 1));
-      } else if (e.key === 'ArrowUp') setCur(-1);
-      else if (e.key === 'ArrowDown') setCur(moves.length - 1);
-      else if (e.key === 'f') setFlipped((f) => !f);
+        else if (!guided) go(cur - 1);
+      } else if (e.key === 'f') setFlipped((f) => !f);
       else return;
       e.preventDefault();
     };
     window.addEventListener('keydown', on);
     return () => window.removeEventListener('keydown', on);
-  }, [moves.length, line]);
+  }, [line, guided, cur, go]);
 
   const points: GraphPoint[] = useMemo(() => {
     if (review)
@@ -118,13 +213,13 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     if (!game) return null;
     if (retry && m) {
       const c = new Chess(m.fenBefore);
-      const last = retry.tried;
       let fen = m.fenBefore;
       let lastMove: [string, string] | undefined = cur > 0 ? [moves[cur - 1].uci.slice(0, 2), moves[cur - 1].uci.slice(2, 4)] : undefined;
-      if (last && retry.state !== 'try') {
-        playUci(c, last);
+      const shown = retry.state === 'revealed' ? m.bestMove : retry.state !== 'try' ? retry.tried : undefined;
+      if (shown) {
+        playUci(c, shown);
         fen = c.fen();
-        lastMove = [last.slice(0, 2), last.slice(2, 4)];
+        lastMove = [shown.slice(0, 2), shown.slice(2, 4)];
       }
       return { fen, lastMove, check: c.inCheck(), dests: retry.state === 'try' ? legalDests(c) : undefined, movable: retry.state === 'try' };
     }
@@ -143,12 +238,17 @@ export function ReviewPage({ gameId }: { gameId: string }) {
   }, [game, m, cur, moves, line, retry]);
 
   const shapes = useMemo<DrawShape[]>(() => {
-    if (!m || retry || line) return [];
+    if (!m || line) return [];
+    if (retry) {
+      // While solving, show nothing; once solved, mark the winning move.
+      if ((retry.state === 'correct' || retry.state === 'revealed') && m.bestMove)
+        return [{ orig: m.bestMove.slice(0, 2) as Key, dest: m.bestMove.slice(2, 4) as Key, brush: 'green' }];
+      return [];
+    }
     const out: DrawShape[] = [{ orig: m.uci.slice(2, 4) as Key, customSvg: { html: boardBadge(m.classification) } }];
     if (showBest && m.bestMove && m.bestMove !== m.uci && !['book', 'forced', 'best', 'brilliant', 'great'].includes(m.classification)) {
       out.push({ orig: m.bestMove.slice(0, 2) as Key, dest: m.bestMove.slice(2, 4) as Key, brush: 'green' });
     }
-    // Show the punishing reply for real mistakes.
     if (showBest && ['mistake', 'blunder'].includes(m.classification) && review) {
       const reply = review.positions[cur + 1]?.lines[0]?.pv[0];
       if (reply) out.push({ orig: reply.slice(0, 2) as Key, dest: reply.slice(2, 4) as Key, brush: 'red', modifiers: { lineWidth: 8 } });
@@ -156,18 +256,23 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     return out;
   }, [m, showBest, retry, line, review, cur]);
 
+  const hints = useMemo(() => {
+    if (!m?.bestMove || !m.bestSan) return null;
+    return hintsFor(m.fenBefore, m.bestMove, m.bestSan, { recaptureSquare: recaptureAt(moves, cur), line: m.bestLine });
+  }, [m, cur, moves]);
+
   const highlights = useMemo(() => {
+    if (m && retry && retry.state === 'try' && (retry.hints ?? 0) >= 2 && hints) return new Map([[hints.square, 'hl-key']]);
     if (!m || retry || line) return undefined;
     const h = new Map<string, string>();
     for (const sq of m.squares ?? []) if (sq !== m.uci.slice(2, 4)) h.set(sq, 'hl-key');
     return h.size ? h : undefined;
-  }, [m, retry, line]);
+  }, [m, retry, line, hints]);
 
   const currentScore: Score | undefined = useMemo(() => {
-    if (!review) return undefined;
-    if (line) return undefined;
+    if (!review || line || retry) return undefined;
     return evalScore(review.positions[cur + 1]);
-  }, [review, cur, line]);
+  }, [review, cur, line, retry]);
 
   // ---------------------------------------------------------------- retry
   const onRetryMove = async (from: string, to: string, promotion?: PromotionPiece) => {
@@ -181,14 +286,29 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     const bestEp = expectedFor(evalScore(before), m.color);
     const known = before.lines.find((l) => l.pv[0] === uci);
     let ep: number | null = known ? expectedFor(known.score, m.color) : null;
+    let reply = known?.pv[1];
     setRetry({ ...retry, tried: uci, state: 'try', checking: ep === null });
     if (ep === null) {
       const res = await getAnalysisEngine().analyse({ fen: c.fen(), limits: { depth: Math.min(review.depth, 16), movetime: 4000 } });
       ep = res.lines[0] ? expectedFor(res.lines[0].score, m.color) : 0;
+      reply = res.lines[0]?.pv[0];
     }
-    const ok = uci === m.bestMove || bestEp - ep <= 0.02;
+    const ok = uci === m.bestMove || bestEp - ep <= 0.02 || c.isCheckmate();
     playSound(ok ? 'correct' : 'wrong');
-    setRetry({ ply: cur, tried: uci, state: ok ? 'correct' : 'wrong' });
+    setRetry({
+      tried: uci,
+      state: ok ? 'correct' : 'wrong',
+      refutation: ok ? null : refutationText(c.fen(), reply, ep),
+      attempts: retry.attempts + 1,
+      hints: retry.hints,
+    });
+    if (ok && guided && guided.results[cur] === undefined)
+      setGuided({ ...guided, results: { ...guided.results, [cur]: retry.attempts === 0 ? 'first' : 'later' } });
+  };
+
+  const reveal = () => {
+    setRetry({ state: 'revealed', attempts: retry?.attempts ?? 0 });
+    if (guided && guided.results[cur] === undefined) setGuided({ ...guided, results: { ...guided.results, [cur]: 'revealed' } });
   };
 
   const claimSide = async (c: 'w' | 'b') => {
@@ -232,7 +352,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         color={c}
         clock={
           s ? (
-            <div className={`acc-box ${c === 'b' ? 'dark' : ''}`} style={{ marginLeft: 'auto', fontSize: '1rem', minWidth: 60 }} title="Accuracy">
+            <div className={`acc-box small ${c === 'b' ? 'dark' : ''}`} title="Accuracy">
               {s.accuracy.toFixed(1)}
             </div>
           ) : undefined
@@ -243,17 +363,174 @@ export function ReviewPage({ gameId }: { gameId: string }) {
 
   const running = job?.status === 'running';
   const progress = job ? job.done / Math.max(1, job.total) : 0;
-  const retryable = m && BAD.includes(m.classification) && !!m.bestMove;
-
-  const nextOf = (pred: (x: ReviewedMove) => boolean, dir = 1) => {
-    for (let i = cur + dir; i >= 0 && i < moves.length; i += dir) if (pred(moves[i])) return i;
+  const retryable = !!m && BAD.includes(m.classification) && !!m.bestMove;
+  const lesson = review && m ? moveLesson(review, cur) : null;
+  const nextMistake = (() => {
+    for (let i = cur + 1; i < moves.length; i++) if (BAD.includes(moves[i].classification) && (!focus || moves[i].color === focus)) return i;
     return null;
-  };
-  const isFocusMistake = (x: ReviewedMove) => BAD.includes(x.classification) && (!focus || x.color === focus);
-  const nextMistake = nextOf(isFocusMistake);
+  })();
+  const sideName = m ? (m.color === 'w' ? 'White' : 'Black') : '';
+
+  const bestLineFor = (x: ReviewedMove) => (review ? review.positions[x.ply].lines[0]?.pv.slice(0, 10) : undefined);
+  const showLine = (base: string, uciMoves: string[] | undefined) => uciMoves?.length && setLine({ base, moves: uciMoves, idx: 1 });
+
+  // ---------------------------------------------------------------- panel content
+  let panel: React.ReactNode = null;
+  if (review && guided && guided.done) {
+    const solved = Object.values(guided.results).filter((r) => r === 'first').length;
+    panel = (
+      <div className="lesson-done">
+        <div style={{ fontSize: 40 }}>🎓</div>
+        <h2>Lesson complete</h2>
+        <p className="muted">
+          You found the better move first time in <b>{solved}</b> of <b>{guided.plies.length}</b> positions. They are saved in Practice, so they will
+          come back until the ideas stick.
+        </p>
+        {lessons && <LessonList lessons={lessons} moves={moves} onJump={(p) => (exitGuided(), go(p))} />}
+        <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
+          <button className="btn primary" onClick={exitGuided}>
+            Back to the review
+          </button>
+          <button className="btn" onClick={() => navigate('/practice')}>
+            Practice now
+          </button>
+        </div>
+      </div>
+    );
+  } else if (review && m && retry) {
+    const step = guided ? `Lesson ${guided.idx + 1} of ${guided.plies.length} · ` : '';
+    panel = (
+      <div className="coach-card">
+        <div className="coach-top">
+          <span className="coach-step">
+            {step}
+            {moveName(m)}
+          </span>
+        </div>
+        {retry.state === 'try' && (
+          <>
+            <h3 className="coach-title">{retry.checking ? 'Checking your move…' : `Find a better move for ${sideName}`}</h3>
+            <p className="coach-text">
+              In the game, {sideName} played <b>{m.san}</b> <ClassIcon cls={m.classification} size={16} />. What would you play instead? Make your
+              move on the board.
+            </p>
+            {retry.attempts > 0 && <p className="coach-text faint">Not that one - try again.</p>}
+            {hints && (retry.hints ?? 0) >= 1 && <p className="coach-hint">💡 {hints.idea}</p>}
+            {hints && (retry.hints ?? 0) >= 2 && <p className="coach-hint">👉 {hints.piece}</p>}
+            <div className="row">
+              {hints && (retry.hints ?? 0) < 2 && (
+                <button className="btn small" onClick={() => setRetry({ ...retry, hints: (retry.hints ?? 0) + 1 })}>
+                  💡 {(retry.hints ?? 0) === 0 ? 'Hint' : 'Another hint'}
+                </button>
+              )}
+              <button className="btn small" onClick={reveal}>
+                Show the answer
+              </button>
+            </div>
+          </>
+        )}
+        {retry.state === 'wrong' && (
+          <>
+            <h3 className="coach-title" style={{ color: CLASS_META.mistake.color }}>
+              Not quite
+            </h3>
+            <p className="coach-text">
+              {retry.refutation ? `${retry.refutation} ` : 'That move still lets the advantage slip. '}
+              Look again - checks, captures and threats first.
+            </p>
+            <div className="row">
+              <button className="btn small primary" onClick={() => setRetry({ state: 'try', attempts: retry.attempts, hints: retry.hints })}>
+                Try again
+              </button>
+              <button className="btn small" onClick={reveal}>
+                Show the answer
+              </button>
+            </div>
+          </>
+        )}
+        {(retry.state === 'correct' || retry.state === 'revealed') && (
+          <>
+            <h3 className="coach-title" style={{ color: retry.state === 'correct' ? CLASS_META.best.color : undefined }}>
+              {retry.state === 'correct'
+                ? `✅ Correct${retry.tried && retry.tried !== m.bestMove ? ' - that works too' : ''}!`
+                : `💡 The move was ${m.bestSan}`}
+            </h3>
+            <div className="coach-section">
+              <div className="coach-label">What happened in the game</div>
+              <p className="coach-text">
+                <b>{m.san}</b> {CLASS_META[m.classification].verdict}. {m.bestLine.length ? withoutBest(m.comment) : m.comment}
+              </p>
+            </div>
+            {m.bestLine.length > 0 && (
+              <div className="coach-section">
+                <div className="coach-label">Why {m.bestSan} is better</div>
+                <p className="coach-text">{bestIdeaSentence(review.positions[cur], m.color, m.epBefore, recaptureAt(moves, cur))}</p>
+                <p className="coach-line">{formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
+              </div>
+            )}
+            {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} />}
+            <div className="row">
+              <button className="btn small" onClick={() => showLine(m.fenBefore, bestLineFor(m))}>
+                ▶ Play the line
+              </button>
+              {guided ? (
+                <button className="btn small primary" onClick={() => guidedStep(guided.idx + 1)}>
+                  {guided.idx + 1 < guided.plies.length ? 'Next lesson ▶' : 'Finish ▶'}
+                </button>
+              ) : (
+                <button className="btn small" onClick={() => setRetry(null)}>
+                  Done
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  } else if (review && m) {
+    panel = (
+      <div className="coach-card">
+        <div className="coach-top">
+          <span className="coach-step">{moveName(m)}</span>
+          <ScoreChip score={m.scoreAfter} />
+        </div>
+        <h3 className="coach-title" style={{ color: CLASS_META[m.classification].color }}>
+          <ClassIcon cls={m.classification} size={22} /> {m.headline}
+        </h3>
+        <p className="coach-text">{m.comment}</p>
+        {m.bestSan && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
+          <p className="coach-line">Best: {formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
+        )}
+        {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} />}
+        <div className="row" style={{ marginTop: 4 }}>
+          {retryable && (
+            <button className="btn small primary" onClick={() => setRetry({ state: 'try', attempts: 0 })}>
+              ↻ Retry
+            </button>
+          )}
+          {m.bestMove && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
+            <button className="btn small" onClick={() => (line ? setLine(null) : showLine(m.fenBefore, bestLineFor(m)))}>
+              {line ? 'Back to game' : '▶ Best line'}
+            </button>
+          )}
+          {review.positions[cur + 1]?.lines[0]?.pv.length ? (
+            <button
+              className="btn small"
+              onClick={() => (line ? setLine(null) : showLine(m.fenAfter, review.positions[cur + 1].lines[0].pv.slice(0, 10)))}
+            >
+              {line ? 'Back to game' : '▶ Follow-up'}
+            </button>
+          ) : null}
+          <label className="toggle" style={{ fontSize: '0.82rem', marginLeft: 'auto' }}>
+            <input type="checkbox" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} /> Arrows
+          </label>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="game-layout">
+    <div className="game-layout focus-screen review-screen">
       <div className="board-column with-evalbar">
         {bar(top)}
         <div className="board-row">
@@ -276,8 +553,8 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         {bar(bottom)}
       </div>
 
-      <div className="side-panel">
-        <div className="panel-head">
+      <div className="side-panel review-panel">
+        <div className="panel-head only-desktop">
           <span style={{ fontSize: 22 }}>⭐</span>
           <b style={{ fontSize: '1.1rem' }}>Game Review</b>
           <span className="spacer" />
@@ -291,7 +568,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
           </button>
         </div>
 
-        <div className="panel-body">
+        <div className="panel-body" ref={bodyRef}>
           {running && (
             <div style={{ marginBottom: 14 }}>
               <div className="row" style={{ marginBottom: 6 }}>
@@ -310,187 +587,141 @@ export function ReviewPage({ gameId }: { gameId: string }) {
           {job?.status === 'error' && <div className="error-box">Review failed: {job.error}</div>}
           {review === null && !job && <div className="muted">Preparing review…</div>}
 
-          {points.length > 1 && <EvalGraph points={points} current={cur + 1} onSelect={(i) => review && setCur(i - 1)} />}
-
-          {review && cur === -1 && !game.userColor && (
-            <div className="row card" style={{ marginTop: 12, padding: 10, background: 'var(--panel-2)' }}>
-              <span className="muted" style={{ fontSize: '0.88rem' }}>
-                Which side were you? (personalises the coach and adds your mistakes to Practice)
-              </span>
-              <button className="btn small" onClick={() => void claimSide('w')}>
-                White
+          {line && (
+            <div className="line-card">
+              <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.max(0, line.idx - 1) })} aria-label="Back">
+                ◀
               </button>
-              <button className="btn small" onClick={() => void claimSide('b')}>
-                Black
+              <div style={{ flex: 1, fontSize: '0.88rem' }}>
+                {formatLine(line.base, sanOf(line.base, line.moves))
+                  .split(' ')
+                  .map((t, i, arr) => (
+                    <span key={i} style={{ opacity: tokenPly(arr, i) < line.idx ? 1 : 0.4 }}>
+                      {t}{' '}
+                    </span>
+                  ))}
+              </div>
+              <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.min(line.moves.length, line.idx + 1) })} aria-label="Forward">
+                ▶
+              </button>
+              <button className="btn ghost small" onClick={() => setLine(null)}>
+                Close
               </button>
             </div>
           )}
-          {review && cur === -1 && <Overview review={review} game={game} focus={focus} setFocus={setFocus} onJump={setCur} />}
 
-          {review && m && (
-            <div style={{ marginTop: 12 }}>
-              <div className="coach">
-                <div className="coach-avatar">🧑‍🏫</div>
-                <div className="bubble">
-                  <div className="headline">
-                    <ClassIcon
-                      cls={retry ? (retry.state === 'correct' ? 'best' : retry.state === 'wrong' ? 'mistake' : m.classification) : m.classification}
-                      size={22}
-                    />
-                    <span style={{ color: retry ? undefined : CLASS_META[m.classification].color }}>
-                      {retry
-                        ? retry.state === 'try'
-                          ? retry.checking
-                            ? 'Checking…'
-                            : `Find a better move for ${m.color === 'w' ? 'White' : 'Black'}`
-                          : retry.state === 'correct'
-                            ? 'Correct!'
-                            : 'Not quite'
-                        : m.headline}
-                    </span>
-                    {!retry && <ScoreChip score={m.scoreAfter} />}
-                  </div>
-                  {retry ? (
-                    <p>
-                      {retry.state === 'try' && 'Make your move on the board.'}
-                      {retry.state === 'correct' && `That keeps the advantage. The engine's line: ${formatLine(m.fenBefore, m.bestLine.slice(0, 6))}`}
-                      {retry.state === 'wrong' && 'That still isn’t the strongest move. Try again or see the solution.'}
-                    </p>
-                  ) : (
-                    <>
-                      <p>{m.comment}</p>
-                      {m.bestSan && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
-                        <div className="line">Best: {formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
+          {panel}
 
-              <div className="row" style={{ marginTop: 10 }}>
-                {!retry && retryable && (
-                  <button className="btn small primary" onClick={() => setRetry({ ply: cur, state: 'try' })}>
-                    ↻ Retry
+          {review && cur === -1 && !guided && (
+            <>
+              {!game.userColor && (
+                <div className="row card" style={{ marginBottom: 12, padding: 10, background: 'var(--panel-2)' }}>
+                  <span className="muted" style={{ fontSize: '0.88rem' }}>
+                    Which side were you? (personalises the lessons and adds your mistakes to Practice)
+                  </span>
+                  <button className="btn small" onClick={() => void claimSide('w')}>
+                    White
                   </button>
-                )}
-                {retry && retry.state === 'wrong' && (
-                  <button className="btn small primary" onClick={() => setRetry({ ply: cur, state: 'try' })}>
-                    Try again
+                  <button className="btn small" onClick={() => void claimSide('b')}>
+                    Black
                   </button>
-                )}
-                {retry && (
-                  <button
-                    className="btn small"
-                    onClick={() => {
-                      setRetry(null);
-                      if (m.bestMove) setLine({ base: m.fenBefore, moves: review.positions[cur].lines[0].pv.slice(0, 10), idx: 1 });
-                    }}
-                  >
-                    Show solution
-                  </button>
-                )}
-                {!retry && m.bestMove && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
-                  <button
-                    className="btn small"
-                    onClick={() => setLine(line ? null : { base: m.fenBefore, moves: review.positions[cur].lines[0].pv.slice(0, 10), idx: 1 })}
-                  >
-                    {line ? 'Back to game' : '▶ Best line'}
-                  </button>
-                )}
-                {!retry && review.positions[cur + 1]?.lines[0]?.pv.length ? (
-                  <button
-                    className="btn small"
-                    onClick={() => setLine(line ? null : { base: m.fenAfter, moves: review.positions[cur + 1].lines[0].pv.slice(0, 10), idx: 1 })}
-                  >
-                    {line ? 'Back to game' : '▶ Follow-up'}
-                  </button>
-                ) : null}
-                <label className="toggle" style={{ fontSize: '0.85rem', marginLeft: 'auto' }}>
-                  <input type="checkbox" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} /> Arrows
-                </label>
-              </div>
-              {line && (
-                <div className="card" style={{ marginTop: 10, background: 'var(--panel-2)', padding: 10 }}>
-                  <div className="row">
-                    <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.max(0, line.idx - 1) })}>
-                      ◀
-                    </button>
-                    <div style={{ flex: 1, fontSize: '0.85rem' }}>
-                      {formatLine(line.base, sanOf(line.base, line.moves))
-                        .split(' ')
-                        .map((t, i, arr) => (
-                          <span key={i} style={{ opacity: tokenPly(arr, i) < line.idx ? 1 : 0.45 }}>
-                            {t}{' '}
-                          </span>
-                        ))}
-                    </div>
-                    <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.min(line.moves.length, line.idx + 1) })}>
-                      ▶
-                    </button>
-                  </div>
                 </div>
               )}
+              <Overview review={review} game={game} focus={focus} setFocus={setFocus} onJump={go} lessons={lessons} onLearn={startGuided} />
+            </>
+          )}
+
+          {points.length > 1 && !guided && (
+            <div style={{ marginTop: 14 }}>
+              <EvalGraph points={points} current={cur + 1} onSelect={(i) => review && go(i - 1)} height={70} />
             </div>
           )}
 
-          {review && (
-            <div style={{ marginTop: 14 }}>
-              <AiCoachChat key={gameId} game={game} review={review} ply={cur} />
-            </div>
-          )}
-
-          {review && (
-            <div style={{ marginTop: 14 }}>
+          {review && !guided && (
+            <div style={{ marginTop: 12 }} className="only-desktop">
               <MoveList
                 sans={moves.map((x) => x.san)}
                 startFen={game.startFen}
                 current={cur}
-                onSelect={setCur}
+                onSelect={go}
                 classes={moves.map((x) => x.classification)}
               />
             </div>
           )}
+
+          {review && !guided && (
+            <div style={{ marginTop: 14 }}>
+              <AiCoachChat key={gameId} game={game} review={review} ply={cur} />
+            </div>
+          )}
         </div>
 
-        <div className="panel-foot">
-          <button className="icon-btn" title="Overview" onClick={() => setCur(-1)}>
-            ⏮
-          </button>
-          <button className="icon-btn" title="Previous (←)" onClick={() => setCur((c) => Math.max(-1, c - 1))} disabled={!review}>
-            ◀
-          </button>
-          <button
-            className="btn primary"
-            style={{ flex: 1 }}
-            onClick={() => setCur((c) => Math.min(moves.length - 1, c + 1))}
-            disabled={!review || cur >= moves.length - 1}
-          >
-            {cur === -1 ? 'Start review ▶' : 'Next ▶'}
-          </button>
-          <button className="icon-btn" title="Last move" onClick={() => setCur(moves.length - 1)} disabled={!review}>
-            ⏭
-          </button>
-          {review && (
-            <button
-              className="btn small"
-              disabled={nextMistake === null}
-              onClick={() => nextMistake !== null && setCur(nextMistake)}
-              title="Jump to the next inaccuracy, mistake, miss or blunder"
-            >
-              Next mistake
-            </button>
-          )}
-          <button className="btn small ghost" onClick={() => navigate(`/analysis?game=${gameId}${cur >= 0 ? `&ply=${cur + 1}` : ''}`)}>
-            🔬 Analyse
-          </button>
-          {review && !running && review.depth < 20 && (
-            <button
-              className="btn small ghost"
-              onClick={() => void useReviewer.getState().start(gameId, { depth: 20, force: true })}
-              title="Run a deeper (slower) review"
-            >
-              Deeper
-            </button>
+        {review && !guided && (
+          <MoveStrip
+            sans={moves.map((x) => x.san)}
+            startFen={game.startFen}
+            current={cur}
+            onSelect={go}
+            classes={moves.map((x) => x.classification)}
+          />
+        )}
+
+        <div className="play-controls">
+          {guided ? (
+            <>
+              <button className="ctl" onClick={exitGuided}>
+                <span className="ctl-ico">✕</span>
+                <span className="ctl-label">Exit lesson</span>
+              </button>
+              <button className="ctl" onClick={() => guidedStep(guided.idx - 1)} disabled={guided.idx === 0 || guided.done}>
+                <span className="ctl-ico">◀</span>
+                <span className="ctl-label">Previous</span>
+              </button>
+              <button className="ctl" onClick={() => guidedStep(guided.idx + 1)} disabled={guided.done}>
+                <span className="ctl-ico">▶</span>
+                <span className="ctl-label">Skip</span>
+              </button>
+              <button className="ctl" onClick={() => setFlipped((f) => !f)}>
+                <span className="ctl-ico">⇅</span>
+                <span className="ctl-label">Flip</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="ctl only-mobile" onClick={() => (window.history.length > 1 ? window.history.back() : navigate('/games'))}>
+                <span className="ctl-ico">✕</span>
+                <span className="ctl-label">Close</span>
+              </button>
+              <button className="ctl" onClick={() => go(cur - 1)} disabled={!review || cur < 0}>
+                <span className="ctl-ico">◀</span>
+              </button>
+              <button className="ctl wide" onClick={() => go(cur + 1)} disabled={!review || cur >= moves.length - 1}>
+                <span className="ctl-ico">▶</span>
+                <span className="ctl-label">{cur === -1 ? 'Start' : 'Next'}</span>
+              </button>
+              <button className="ctl" onClick={() => nextMistake !== null && go(nextMistake)} disabled={nextMistake === null}>
+                <span className="ctl-ico">⏭</span>
+                <span className="ctl-label">Mistake</span>
+              </button>
+              <button className="ctl" onClick={() => setFlipped((f) => !f)}>
+                <span className="ctl-ico">⇅</span>
+                <span className="ctl-label">Flip</span>
+              </button>
+              <button className="ctl" onClick={() => navigate(`/analysis?game=${gameId}${cur >= 0 ? `&ply=${cur + 1}` : ''}`)}>
+                <span className="ctl-ico">🔬</span>
+                <span className="ctl-label">Analyse</span>
+              </button>
+              {review && !running && review.depth < 20 && (
+                <button
+                  className="ctl only-desktop"
+                  onClick={() => void useReviewer.getState().start(gameId, { depth: 20, force: true })}
+                  title="Run a deeper review"
+                >
+                  <span className="ctl-ico">⤓</span>
+                  <span className="ctl-label">Deeper</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -498,28 +729,57 @@ export function ReviewPage({ gameId }: { gameId: string }) {
   );
 }
 
-/** Performance estimates from a handful of moves are noise, so only show them for real games. */
-function ratingText(review: GameReview, c: 'w' | 'b') {
-  const n = review.moves.filter((m) => m.color === c && m.classification !== 'book').length;
-  return n >= 8 ? (c === 'w' ? review.white : review.black).estimatedRating : '–';
+function LessonBox({ icon, title, rule }: { icon: string; title: string; rule: string }) {
+  return (
+    <div className="lesson-box">
+      <div className="lesson-head">
+        <span className="lesson-icon">{icon}</span>
+        <span>
+          <span className="coach-label">Lesson</span>
+          <b>{title}</b>
+        </span>
+      </div>
+      <p>{rule}</p>
+    </div>
+  );
 }
 
-function sanOf(fen: string, moves: string[]): string[] {
-  const c = new Chess(fen);
-  const out: string[] = [];
-  for (const u of moves) {
-    const mv = playUci(c, u);
-    if (!mv) break;
-    out.push(mv.san);
-  }
-  return out;
-}
-
-/** Ply index (within the line) that a token of a formatted line belongs to. */
-function tokenPly(tokens: string[], i: number): number {
-  let sans = 0;
-  for (let k = 0; k < i; k++) if (!/^\d+\.+$/.test(tokens[k])) sans++;
-  return sans;
+function LessonList({ lessons, moves, onJump }: { lessons: GameLessons; moves: ReviewedMove[]; onJump: (ply: number) => void }) {
+  if (!lessons.lessons.length && !lessons.strengths.length) return null;
+  return (
+    <div className="lesson-list">
+      {lessons.lessons.map((l) => (
+        <div key={l.theme} className="lesson-item">
+          <div className="lesson-head">
+            <span className="lesson-icon">{l.icon}</span>
+            <b>{l.title}</b>
+          </div>
+          <p className="muted">{l.detail}</p>
+          <p>{l.rule}</p>
+          {l.plies.length > 0 && (
+            <div className="row" style={{ gap: 6 }}>
+              {l.plies.slice(0, 6).map((p) => (
+                <button key={p} className="chip" onClick={() => onJump(p)}>
+                  {moves[p] && <ClassIcon cls={moves[p].classification} size={14} />} {moves[p] ? moveName(moves[p]) : ''}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      {lessons.strengths.length > 0 && (
+        <div className="lesson-item good">
+          <div className="lesson-head">
+            <span className="lesson-icon">💪</span>
+            <b>What you did well</b>
+          </div>
+          {lessons.strengths.map((s) => (
+            <p key={s}>{s}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Overview({
@@ -528,28 +788,47 @@ function Overview({
   focus,
   setFocus,
   onJump,
+  lessons,
+  onLearn,
 }: {
   review: GameReview;
   game: GameRecord;
   focus: 'w' | 'b' | null;
   setFocus: (c: 'w' | 'b' | null) => void;
   onJump: (i: number) => void;
+  lessons: GameLessons | null;
+  onLearn: () => void;
 }) {
   const phases: Phase[] = ['opening', 'middlegame', 'endgame'];
   return (
-    <div style={{ marginTop: 12 }}>
-      <div className="coach">
-        <div className="coach-avatar">🧑‍🏫</div>
-        <div className="bubble">
-          <div className="headline">Coach’s summary</div>
-          <p>{review.summary}</p>
+    <div>
+      {lessons && lessons.practice.length > 0 && (
+        <button className="btn primary learn-btn" onClick={onLearn}>
+          🎓 Learn from this game
+          <span>
+            Find the better move in your {lessons.practice.length} key moment{lessons.practice.length > 1 ? 's' : ''}
+          </span>
+        </button>
+      )}
+      <div className="coach-card" style={{ marginTop: 12 }}>
+        <div className="coach-top">
+          <span className="coach-step">Coach’s summary</span>
           {review.opening && (
-            <div className="line">
-              📖 {review.opening.eco} · {review.opening.name}
-            </div>
+            <span className="faint" style={{ fontSize: '0.78rem' }}>
+              {review.opening.eco}
+            </span>
           )}
         </div>
+        <p className="coach-text">{review.summary.replace(/ Coach's tips:.*$/, '')}</p>
+        {review.opening && <p className="coach-line">📖 {review.opening.name}</p>}
       </div>
+
+      {lessons && (lessons.lessons.length > 0 || lessons.strengths.length > 0) && (
+        <>
+          <h3 style={{ margin: '16px 0 8px' }}>Lessons from this game</h3>
+          <LessonList lessons={lessons} moves={review.moves} onJump={onJump} />
+        </>
+      )}
 
       <table className="summary-table" style={{ marginTop: 14 }}>
         <tbody>
@@ -632,10 +911,7 @@ function Overview({
           .map((x) => (
             <div key={x.ply} className="key-moment" onClick={() => onJump(x.ply)}>
               <ClassIcon cls={x.classification} size={20} />
-              <b style={{ minWidth: 70 }}>
-                {Math.floor(x.ply / 2) + 1}
-                {x.color === 'w' ? '.' : '...'} {x.san}
-              </b>
+              <b style={{ minWidth: 70 }}>{moveName(x)}</b>
               <span className="muted" style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {x.headline}
               </span>

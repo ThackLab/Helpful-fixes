@@ -10,6 +10,7 @@ import { chooseBotMove } from '../lib/bots/brain';
 import { setOpeningBook } from '../lib/chess/openings';
 import { reviewGame } from '../lib/review/review';
 import { CLASS_META } from '../lib/review/types';
+import { gameLessons, moveLesson } from '../lib/review/lessons';
 import { nodeEngine } from './nodeEngine';
 
 it.skipIf(!process.env.AMATEUR)('amateur game review', { timeout: 900_000 }, async () => {
@@ -34,9 +35,17 @@ it.skipIf(!process.env.AMATEUR)('amateur game review', { timeout: 900_000 }, asy
   for (const m of review.moves) {
     if (['best', 'excellent', 'good', 'book', 'forced'].includes(m.classification)) continue;
     const no = Math.floor(m.ply / 2) + 1 + (m.color === 'w' ? '.' : '...');
-    console.log(`${no.padEnd(5)} ${m.san.padEnd(7)} ${CLASS_META[m.classification].label.padEnd(10)} | ${m.comment}`);
+    const ml = moveLesson(review, m.ply);
+    console.log(
+      `${no.padEnd(5)} ${m.san.padEnd(7)} ${CLASS_META[m.classification].label.padEnd(10)} | ${m.comment}${ml ? `  [${ml.info.title}]` : ''}`,
+    );
   }
   console.log('WHITE', review.white.accuracy.toFixed(1), JSON.stringify(review.white.counts));
   console.log('BLACK', review.black.accuracy.toFixed(1), JSON.stringify(review.black.counts));
   console.log('SUMMARY', review.summary);
+  const result = chess.isCheckmate() ? (chess.turn() === 'w' ? '0-1' : '1-0') : '1/2-1/2';
+  const gl = gameLessons(review, { userColor: 'w', result });
+  for (const l of gl.lessons) console.log(`LESSON ${l.icon} ${l.title} | ${l.detail}`);
+  for (const st of gl.strengths) console.log(`STRENGTH ${st}`);
+  console.log('PRACTICE', gl.practice.map((p) => review.moves[p].san).join(' '));
 });

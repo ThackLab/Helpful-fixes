@@ -742,7 +742,16 @@ cg-board square.hl-key {
   width: 18px;
   height: 18px;
   background-size: cover;
-  margin-right: -6px;
+  margin-right: -11px;
+}
+
+.cap-group {
+  display: inline-flex;
+  margin-right: 5px;
+}
+
+.cap-group piece:last-child {
+  margin-right: 0;
 }
 
 .captured .diff {
@@ -781,6 +790,306 @@ cg-board square.hl-key {
   background: #262421;
   color: #fff;
   box-shadow: inset 0 0 0 2px #fff;
+}
+
+/* ---------------------------------------------------------------- play screen controls */
+
+.play-panel .panel-body {
+  flex: 1;
+}
+
+.play-controls {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.ctl {
+  flex: 1;
+  min-width: 0;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctl:hover,
+.ctl:active {
+  background: #ffffff12;
+  color: var(--text);
+}
+
+.ctl:disabled {
+  opacity: 0.35;
+  background: transparent;
+}
+
+.ctl.danger {
+  color: #ff8a7a;
+}
+
+.ctl-ico {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.ctl-label {
+  font-size: 0.68rem;
+}
+
+.game-over-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.move-strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 40px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.move-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.strip-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.move-strip .no {
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  margin: 0 2px 0 8px;
+}
+
+.move-strip .mv {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.move-strip .mv.cur {
+  background: #ffffff2e;
+}
+
+/* ---------------------------------------------------------------- coach card & lessons */
+
+.ctl.wide {
+  flex: 1.6;
+}
+
+.acc-box.small {
+  margin-left: auto;
+  font-size: 1rem;
+  min-width: 58px;
+  padding: 3px 8px;
+}
+
+.coach-card {
+  background: #fff;
+  color: #262421;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 8px;
+}
+
+.coach-card .faint {
+  color: #8b8987;
+}
+
+.coach-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.coach-step {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b8987;
+}
+
+.coach-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.coach-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.coach-line {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #5b5955;
+}
+
+.coach-section {
+  display: grid;
+  gap: 2px;
+}
+
+.coach-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b8987;
+}
+
+.coach-card .btn:not(.primary) {
+  background: #ecebe9;
+  color: #262421;
+  box-shadow: 0 2px 0 0 #d2d0cc;
+}
+
+.coach-card .btn.ghost {
+  background: transparent;
+  box-shadow: none;
+}
+
+.coach-hint {
+  margin: 0;
+  background: #fff6d6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.92rem;
+}
+
+.lesson-box {
+  background: #f1f6ea;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.lesson-box p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.lesson-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lesson-icon {
+  font-size: 1.3rem;
+  width: 28px;
+  text-align: center;
+  flex: none;
+}
+
+.learn-btn {
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  white-space: normal;
+  font-size: 1.05rem;
+}
+
+.learn-btn span {
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.lesson-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lesson-item {
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  border-left: 4px solid #ffa459;
+}
+
+.lesson-item.good {
+  border-left-color: var(--accent);
+}
+
+.lesson-item p {
+  margin: 6px 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #ffffff14;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: #ffffff26;
+}
+
+.line-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+}
+
+.lesson-done {
+  text-align: center;
+}
+
+.lesson-done .lesson-list {
+  text-align: left;
+  margin-top: 12px;
 }
 
 /* ---------------------------------------------------------------- eval bar & graph */
@@ -1447,10 +1756,128 @@ cg-board square.hl-key {
     max-height: none;
     min-height: 0;
   }
+
+  /* Playing on a phone: board edge to edge, everything fits without scrolling. */
+  .app.focus {
+    grid-template-rows: 1fr;
+  }
+  .app.focus .sidebar {
+    display: none;
+  }
+  .app.focus .main {
+    overflow: hidden;
+  }
+  .focus-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+  }
+  .focus-screen .board-column {
+    --board: min(calc(100vw - var(--evalbar, 0px)), calc(100dvh - 104px - 96px));
+    width: 100%;
+    gap: 0;
+    margin: 0;
+    flex: none;
+  }
+  .focus-screen .board-column.with-evalbar {
+    --evalbar: 12px;
+  }
+  .focus-screen .board-row {
+    gap: 0;
+    justify-content: center;
+  }
+  .focus-screen .eval-bar {
+    width: 12px;
+    border-radius: 0;
+  }
+  .focus-screen .eval-bar .label {
+    display: none;
+  }
+  .focus-screen cg-board {
+    border-radius: 0;
+  }
+  .focus-screen .player-bar {
+    min-height: 52px;
+    padding: 4px 10px;
+    gap: 8px;
+  }
+  .focus-screen .avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 1.25rem;
+  }
+  .focus-screen .clock {
+    font-size: 1.15rem;
+    min-width: 84px;
+    padding: 3px 10px;
+  }
+  /* Split spare height above the board and above the controls, so the board sits centred. */
+  .play-screen::before {
+    content: '';
+    flex: 1 1 0;
+    max-height: 12vh;
+  }
+  .focus-screen .side-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .focus-screen .play-controls {
+    margin-top: auto;
+    background: var(--bg-deep);
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .review-screen .board-column {
+    /* Leave room under the board for the coach's explanation. */
+    --board: min(calc(100vw - var(--evalbar, 0px)), calc(100dvh - 88px - 96px - 190px));
+  }
+  .practice-screen .board-column {
+    /* The tab bar stays visible here. */
+    --board: min(100vw, calc(100dvh - 60px - 40px - 70px - 200px));
+  }
+  .practice-screen::before {
+    display: none;
+  }
+  .practice-screen .panel-body {
+    padding: 10px 12px;
+  }
+  .review-screen .player-bar {
+    min-height: 44px;
+    padding: 2px 10px;
+  }
+  .review-screen .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 1.1rem;
+  }
+  .review-screen::before {
+    display: none;
+  }
+  .review-screen .side-panel {
+    flex: 1 1 auto;
+  }
+  .review-screen .panel-body {
+    padding: 10px 12px 16px;
+  }
+  .only-desktop {
+    display: none !important;
+  }
   .hero {
     grid-template-columns: 1fr;
   }
   .hero h1 {
     font-size: 1.8rem;
+  }
+}
+
+@media (min-width: 861px) {
+  .only-mobile {
+    display: none !important;
   }
 }

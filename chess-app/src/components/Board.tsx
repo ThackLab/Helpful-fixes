@@ -111,6 +111,8 @@ export const Board = memo(
       };
     };
 
+    // chessground binds its input listeners only when it is created, so a
+    // view-only board must be rebuilt to become playable (and vice versa).
     useEffect(() => {
       if (!el.current) return;
       cg.current = Chessground(el.current, config());
@@ -119,7 +121,7 @@ export const Board = memo(
         cg.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [!!props.viewOnly]);
 
     // Only reconfigure when something relevant changed, so unrelated re-renders
     // (clock ticks, engine output) never interrupt a drag in progress.

@@ -361,11 +361,7 @@ export function summariseGame(r: GameReview, userColor?: Color): string {
     const mine = r.moves.filter((m) => m.color === focus);
     const hung = mine.filter((m) => m.tags.includes('hangs')).length;
     const allowedMate = mine.filter((m) => m.tags.includes('allowsMate')).length;
-    const tacticalHits = mine.filter(
-      (m) =>
-        m.tags.some((t) => ['fork', 'pin', 'skewer', 'discovered', 'discoveredCheck'].includes(t)) &&
-        ['mistake', 'blunder'].includes(m.classification),
-    ).length;
+    const tacticalHits = mine.filter((m) => m.tags.some((t) => t.startsWith('allows:')) && ['mistake', 'blunder'].includes(m.classification)).length;
     const found = [
       s.counts.brilliant ? `${s.counts.brilliant} brilliant move${s.counts.brilliant > 1 ? 's' : ''}` : '',
       s.counts.great ? `${s.counts.great} great move${s.counts.great > 1 ? 's' : ''}` : '',
@@ -385,8 +381,7 @@ export function summariseGame(r: GameReview, userColor?: Color): string {
       const [strong] = ph[ph.length - 1];
       if (ph[ph.length - 1][1] - weakAcc > 8) tips.push(`your ${weak} (${pct(weakAcc)}) was weaker than your ${strong} - worth practising`);
     }
-    if (tips.length) out.push(`Coach's tips: ${tips.join('; ')}.`);
-    else if (s.accuracy >= 85) out.push('A clean, well-played game. Keep it up!');
+    if (!tips.length && s.accuracy >= 85) out.push('A clean, well-played game. Keep it up!');
   }
   return out.join(' ');
 }

@@ -7,6 +7,7 @@ import { isMobile } from '../lib/platform';
 import { loadOpeningBook } from '../lib/chess/openings';
 import { analysePositions, buildReview } from '../lib/review/review';
 import type { GameReview, PositionEval } from '../lib/review/types';
+import { moveLesson } from '../lib/review/lessons';
 import { getGame, getReview, saveReview, savePuzzles, type Puzzle } from '../lib/storage/db';
 import { useSettings } from './settings';
 
@@ -76,6 +77,10 @@ export function puzzlesFrom(review: GameReview, gameId: string, color: Color | u
       playedSan: m.san,
       classification: m.classification,
       comment: m.comment,
+      lesson: (() => {
+        const l = moveLesson(review, m.ply);
+        return l ? { icon: l.info.icon, title: l.info.title, rule: l.info.rule } : undefined;
+      })(),
       createdAt: Date.now(),
       box: 0,
       due: Date.now(),

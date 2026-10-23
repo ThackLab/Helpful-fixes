@@ -9,9 +9,12 @@ A free, private, chess.com-style app that runs entirely in your browser:
   - explains each move in plain English. The coach replays the engine lines and spots hanging pieces, forks and double attacks, pins, skewers, discovered attacks, mate threats and material swings, e.g. *"This allows Qg5, which makes a double attack on the knight on e5 and the pawn on g2"*;
   - draws the best-move and refutation arrows, and marks classifications on the board;
   - lets you **Retry** any mistake, replay the best line or the follow-up, and jump straight to the next mistake;
-  - writes a game summary with personalised tips;
+  - **Learn from this game:** a guided lesson that walks you through your costliest moments. For each one you find the better move yourself, with a two-step hint (the idea, then the piece). If you pick a wrong move, it shows the reply that punishes it. Afterwards it explains what went wrong in the game, why the better move works, and the general rule behind it;
+  - **Lessons from this game:** groups your mistakes into recurring themes (hanging pieces, forks, back-rank weakness, missed recaptures, early queen moves, king safety, endgame technique and more), ranked by how many points they cost you, plus what you did well;
+  - writes a game summary;
   - optionally lets you **ask an AI coach** follow-up questions in plain English (Claude, with your own Anthropic API key).
-- **Learn from your mistakes.** Every blunder, mistake and miss you make becomes a practice puzzle, scheduled with spaced repetition until you've learned it.
+- **Learn from your mistakes.** Every blunder, mistake and miss you make becomes a practice puzzle, scheduled with spaced repetition until you've learned it. Each puzzle has hints and the lesson it teaches.
+- **Built for phones.** On the game and review screens the board fills the width of the screen, with no navigation bar and no page scrolling, so the board never moves. The controls sit in a thumb bar at the bottom.
 - **Analysis board.** Variation tree, 1–5 engine lines with arrows, threat view, PGN import (variations, comments and NAGs are kept), FEN import, position editor, PGN export, and one-click full review of the main line.
 - **Review your chess.com and lichess games for free.** Import recent games by username, or paste or upload any PGN, including multi-game files.
 - Game library, rating graph, opening stats, backup and restore. Installs as a PWA and keeps working offline once loaded.

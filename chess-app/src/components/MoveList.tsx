@@ -2,7 +2,32 @@ import { useEffect, useRef } from 'react';
 import { ClassIcon } from './ClassIcon';
 import type { Classification } from '../lib/review/types';
 
-/** Two-column move list (White | Black) used by the game and review screens. */
+const QUIET: (Classification | undefined)[] = ['best', 'excellent', 'good', 'book', 'forced', undefined];
+
+/**
+ * Keeps `el` visible inside its own scrolling container only. (scrollIntoView
+ * would also scroll the page, making the board jump after every move.)
+ */
+function revealInside(el: HTMLElement | null, box: HTMLElement | null, axis: 'x' | 'y') {
+  if (!el || !box) return;
+  const r = el.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  if (axis === 'y') {
+    if (box.scrollHeight <= box.clientHeight) return;
+    if (r.top < b.top) box.scrollTop -= b.top - r.top + 8;
+    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom + 8;
+  } else {
+    if (r.left < b.left) box.scrollLeft -= b.left - r.left + 24;
+    else if (r.right > b.right) box.scrollLeft += r.right - b.right + 24;
+  }
+}
+
+function numbering(startFen: string) {
+  const parts = startFen.split(' ');
+  return { blackFirst: parts[1] === 'b', firstNo: +parts[5] || 1 };
+}
+
+/** Two-column move list (White | Black) used by the game and review screens on wide screens. */
 export function MoveList({
   sans,
   startFen,
@@ -18,24 +43,20 @@ export function MoveList({
   classes?: (Classification | undefined)[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const parts = startFen.split(' ');
-  const blackFirst = parts[1] === 'b';
-  const firstNo = +parts[5] || 1;
+  const { blackFirst, firstNo } = numbering(startFen);
   const offset = blackFirst ? 1 : 0;
   const rows = Math.ceil((sans.length + offset) / 2);
 
   useEffect(() => {
-    const el = ref.current?.querySelector('.mv.cur');
-    if (el) (el as HTMLElement).scrollIntoView({ block: 'nearest' });
-  }, [current]);
+    revealInside(ref.current?.querySelector<HTMLElement>('.mv.cur') ?? null, ref.current?.closest<HTMLElement>('.panel-body') ?? null, 'y');
+  }, [current, sans.length]);
 
   const cell = (i: number) => {
     if (i < 0 || i >= sans.length) return <span />;
     const cls = classes?.[i];
-    const show = cls && !['best', 'excellent', 'good', 'book', 'forced'].includes(cls);
     return (
       <span className={`mv ${i === current ? 'cur' : ''}`} onClick={() => onSelect(i)}>
-        {show && <ClassIcon cls={cls} size={16} />}
+        {!QUIET.includes(cls) && <ClassIcon cls={cls!} size={16} />}
         {sans[i]}
       </span>
     );
@@ -55,6 +76,53 @@ export function MoveList({
           No moves yet.
         </span>
       )}
+    </div>
+  );
+}
+
+/** Single-line, horizontally scrolling move list for phones. */
+export function MoveStrip({
+  sans,
+  startFen,
+  current,
+  onSelect,
+  classes,
+}: {
+  sans: string[];
+  startFen: string;
+  current: number;
+  onSelect: (index: number) => void;
+  classes?: (Classification | undefined)[];
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { blackFirst, firstNo } = numbering(startFen);
+
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const el = box.querySelector<HTMLElement>('.mv.cur');
+    if (el) revealInside(el, box, 'x');
+    else if (current >= sans.length - 1) box.scrollLeft = box.scrollWidth;
+  }, [current, sans.length]);
+
+  return (
+    <div className="move-strip only-mobile" ref={ref}>
+      {!sans.length && <span className="faint">No moves yet</span>}
+      {sans.map((san, i) => {
+        const ply = i + (blackFirst ? 1 : 0);
+        const white = ply % 2 === 0;
+        const no = firstNo + Math.floor(ply / 2);
+        const cls = classes?.[i];
+        return (
+          <span key={i} className="strip-item">
+            {(white || i === 0) && <span className="no">{white ? `${no}.` : `${no}...`}</span>}
+            <span className={`mv ${i === current ? 'cur' : ''}`} onClick={() => onSelect(i)}>
+              {!QUIET.includes(cls) && <ClassIcon cls={cls!} size={14} />}
+              {san}
+            </span>
+          </span>
+        );
+      })}
     </div>
   );
 }

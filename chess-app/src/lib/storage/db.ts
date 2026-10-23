@@ -51,6 +51,8 @@ export interface Puzzle {
   playedSan: string;
   classification: string;
   comment: string;
+  /** The pattern behind the mistake (see review/lessons). */
+  lesson?: { icon: string; title: string; rule: string };
   createdAt: number;
   /** Leitner box (0 = new). */
   box: number;

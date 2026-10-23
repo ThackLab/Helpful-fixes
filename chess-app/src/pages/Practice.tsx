@@ -7,10 +7,12 @@ import { ClassIcon } from '../components/ClassIcon';
 import { deletePuzzle, listPuzzles, onDbChange, savePuzzle, type Puzzle } from '../lib/storage/db';
 import { getAnalysisEngine } from '../lib/engine/manager';
 import { scoreToCp } from '../lib/engine/uci';
+import { cpToExpected } from '../lib/review/winprob';
 import { formatLine, legalDests, moveToUci, playUci } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
 import { playSound, soundForSan } from '../lib/sound';
 import type { Classification } from '../lib/review/types';
+import { hintsFor, refutationText } from '../lib/review/hints';
 
 const DAY = 86_400_000;
 const INTERVALS = [DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -25,6 +27,8 @@ export function PracticePage() {
   const [streak, setStreak] = useState(0);
   const [firstTry, setFirstTry] = useState(true);
   const [skipped, setSkipped] = useState<string[]>([]);
+  const [hintLevel, setHintLevel] = useState(0);
+  const [refutation, setRefutation] = useState<string | null>(null);
 
   useEffect(() => {
     const load = () => listPuzzles().then(setPuzzles);
@@ -45,6 +49,13 @@ export function PracticePage() {
   }, [due, current]);
 
   const chess = useMemo(() => (current ? new Chess(current.fen) : null), [current]);
+  const hints = useMemo(
+    () =>
+      current?.solution[0] && current.solutionSan[0]
+        ? hintsFor(current.fen, current.solution[0], current.solutionSan[0], { line: current.solutionSan })
+        : null,
+    [current],
+  );
   const view = useMemo(() => {
     if (!current || !chess) return null;
     if (phase === 'revealed' || phase === 'correct') {
@@ -61,6 +72,10 @@ export function PracticePage() {
     return { fen: current.fen, lastMove: undefined, check: chess.inCheck() };
   }, [current, chess, phase, tried]);
 
+  const hintHighlights = useMemo(
+    () => (phase === 'solve' && hintLevel >= 2 && hints ? new Map([[hints.square, 'hl-key']]) : undefined),
+    [phase, hintLevel, hints],
+  );
   const dests = useMemo(() => (chess && phase === 'solve' ? legalDests(chess) : undefined), [chess, phase]);
   const shapes = useMemo<DrawShape[]>(() => {
     if (!current || phase !== 'revealed') return [];
@@ -78,6 +93,7 @@ export function PracticePage() {
       due: Date.now() + (ok ? INTERVALS[box] : 10 * 60_000),
     };
     await savePuzzle(next);
+    setCurrent((c) => (c?.id === next.id ? next : c));
   };
 
   const onMove = async (from: string, to: string, promotion?: PromotionPiece) => {
@@ -89,6 +105,8 @@ export function PracticePage() {
     playSound(soundForSan(mv.san));
     setTried(uci);
     let ok = uci === current.solution[0] || c.isCheckmate();
+    let reply: string | undefined;
+    let ep = 1;
     if (!ok) {
       setPhase('checking');
       // Accept alternatives the engine rates as (practically) equal to the solution.
@@ -103,6 +121,8 @@ export function PracticePage() {
       const mine = a.lines[0] ? sign * scoreToCp(a.lines[0].score) : -99999;
       const best = b.lines[0] ? sign * scoreToCp(b.lines[0].score) : 0;
       ok = mine >= best - 30;
+      reply = a.lines[0]?.pv[0];
+      ep = cpToExpected(mine);
     }
     playSound(ok ? 'correct' : 'wrong');
     setPhase(ok ? 'correct' : 'wrong');
@@ -111,12 +131,14 @@ export function PracticePage() {
       await grade(current, true);
     } else {
       setStreak(0);
+      setRefutation(refutationText(c.fen(), reply, ep));
       if (firstTry) await grade(current, false);
       setFirstTry(false);
     }
   };
 
   const next = () => {
+    setHintLevel(0);
     setCurrent(null);
     setPhase('solve');
     setTried(null);
@@ -168,14 +190,22 @@ export function PracticePage() {
 
   const side = current.color === 'w' ? 'White' : 'Black';
   return (
-    <div className="game-layout">
+    <div className="game-layout focus-screen practice-screen">
       <div className="board-column">
-        <div className="player-bar" style={{ minHeight: 30 }}>
+        <div className="player-bar only-desktop" style={{ minHeight: 30 }}>
           <b>Find the best move for {side}</b>
+        </div>
+        <div className="player-bar only-mobile" style={{ minHeight: 30 }}>
+          <b>🎯 Practice</b>
+          <span className="spacer" />
+          <span className="faint">
+            {allDue.length} due · streak {streak}
+          </span>
         </div>
         <div className="board-row">
           {view && (
             <Board
+              highlights={hintHighlights}
               fen={view.fen}
               orientation={current.color === 'w' ? 'white' : 'black'}
               movableColor={phase === 'solve' ? (current.color === 'w' ? 'white' : 'black') : undefined}
@@ -190,7 +220,7 @@ export function PracticePage() {
         </div>
       </div>
       <div className="side-panel">
-        <div className="panel-head">
+        <div className="panel-head only-desktop">
           <span style={{ fontSize: 22 }}>🎯</span>
           <b>Practice</b>
           <span className="spacer" />
@@ -199,44 +229,71 @@ export function PracticePage() {
           </span>
         </div>
         <div className="panel-body">
-          <div className="coach">
-            <div className="coach-avatar">🧑‍🏫</div>
-            <div className="bubble">
-              <div className="headline">
-                {phase === 'solve' && `${side} to move`}
-                {phase === 'checking' && 'Checking…'}
-                {phase === 'correct' && (
-                  <>
-                    <ClassIcon cls="best" /> Correct!
-                  </>
-                )}
-                {phase === 'wrong' && (
-                  <>
-                    <ClassIcon cls="mistake" /> Not this time
-                  </>
-                )}
-                {phase === 'revealed' && 'Solution'}
-              </div>
-              <p>
-                {phase === 'solve' && (
-                  <>
-                    In your game you played <b>{current.playedSan}</b>{' '}
-                    <span style={{ verticalAlign: 'middle' }}>
-                      <ClassIcon cls={current.classification as Classification} size={16} />
-                    </span>
-                    . Can you find the stronger move?
-                  </>
-                )}
-                {(phase === 'correct' || phase === 'revealed') && (
-                  <>
-                    {formatLine(current.fen, current.solutionSan)}
-                    <br />
-                    <span style={{ color: '#555', fontSize: '0.85rem' }}>{current.comment}</span>
-                  </>
-                )}
-                {phase === 'wrong' && 'That move doesn’t solve the position. Try again, or reveal the solution.'}
-              </p>
+          <div className="coach-card">
+            <div className="coach-top">
+              <span className="coach-step">{side} to move</span>
+              <ClassIcon cls={current.classification as Classification} size={18} />
             </div>
+            <h3 className="coach-title">
+              {phase === 'solve' && 'Find the stronger move'}
+              {phase === 'checking' && 'Checking…'}
+              {phase === 'correct' && (
+                <>
+                  <ClassIcon cls="best" /> Correct!
+                </>
+              )}
+              {phase === 'wrong' && (
+                <>
+                  <ClassIcon cls="mistake" /> Not this time
+                </>
+              )}
+              {phase === 'revealed' && `💡 The move was ${current.solutionSan[0]}`}
+            </h3>
+            {phase === 'solve' && (
+              <>
+                <p className="coach-text">
+                  In your game you played <b>{current.playedSan}</b> here. What should you have played?
+                </p>
+                {hints && hintLevel >= 1 && <p className="coach-hint">💡 {hints.idea}</p>}
+                {hints && hintLevel >= 2 && <p className="coach-hint">👉 {hints.piece}</p>}
+                {hints && hintLevel < 2 && (
+                  <div className="row">
+                    <button className="btn small" onClick={() => (setHintLevel((h) => h + 1), setFirstTry(false))}>
+                      💡 {hintLevel === 0 ? 'Hint' : 'Another hint'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {phase === 'wrong' && (
+              <p className="coach-text">{refutation ?? 'That move doesn’t solve the position.'} Try again, or reveal the solution.</p>
+            )}
+            {(phase === 'correct' || phase === 'revealed') && (
+              <>
+                <div className="coach-section">
+                  <div className="coach-label">The line</div>
+                  <p className="coach-text">{formatLine(current.fen, current.solutionSan)}</p>
+                </div>
+                <div className="coach-section">
+                  <div className="coach-label">What happened in your game</div>
+                  <p className="coach-text">
+                    <b>{current.playedSan}</b>: {current.comment}
+                  </p>
+                </div>
+                {current.lesson && (
+                  <div className="lesson-box">
+                    <div className="lesson-head">
+                      <span className="lesson-icon">{current.lesson.icon}</span>
+                      <span>
+                        <span className="coach-label">Lesson</span>
+                        <b>{current.lesson.title}</b>
+                      </span>
+                    </div>
+                    <p>{current.lesson.rule}</p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div className="faint" style={{ fontSize: '0.8rem', marginTop: 10 }}>
             Box {current.box + 1}/{INTERVALS.length} · solved {current.solved}/{current.attempts} · from{' '}

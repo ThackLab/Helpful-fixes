@@ -84,7 +84,7 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${root === 'game' || root === 'review' ? 'focus' : ''}`}>
       <nav className="sidebar">
         <a className="brand" href="#/">
           <Logo /> Outpost

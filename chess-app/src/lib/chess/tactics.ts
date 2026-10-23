@@ -203,8 +203,8 @@ export function moveMotifs(fenBefore: string, uci: string, recaptureSquare?: str
     else if (net === 0) {
       const text =
         m.piece === m.captured || PIECE_VALUE[m.piece] !== capValue
-          ? `exchanges ${plural(m.captured)}`
-          : `trades the ${name} for the ${PIECE_NAME[m.captured]}`;
+          ? `trades off the ${PIECE_NAME[m.captured]} on ${m.to}`
+          : `trades your ${name} for the ${PIECE_NAME[m.captured]} on ${m.to}`;
       out.push({ kind: 'trade', text, squares: [m.to] });
     }
   }

@@ -81,8 +81,26 @@ function bestMoveIdea(p: PositionEval, color: Color, recaptureSquare?: string): 
     return key ? `${key.text} and wins ${what}` : `wins ${what}`;
   }
   if (key) return key.text;
-  const first = motifs.find((m) => m.kind !== 'check' && m.kind !== 'trade');
+  const first = motifs.find((m) => m.kind !== 'check');
   return first?.text ?? '';
+}
+
+/** What playing the best move would have kept, in words. */
+function keepPhrase(epBest: number): string {
+  if (epBest >= 0.85) return 'keeps you winning';
+  if (epBest >= 0.57) return 'keeps your advantage';
+  if (epBest > 0.43) return 'keeps the position balanced';
+  if (epBest > 0.15) return 'limits the damage';
+  return 'puts up the most resistance';
+}
+
+/** A full sentence on why the engine's move is better - used by the guided lessons. */
+export function bestIdeaSentence(before: PositionEval, color: Color, epBest: number, recaptureSquare?: string): string {
+  const best = before.lines[0]?.san[0];
+  if (!best) return '';
+  const idea = bestMoveIdea(before, color, recaptureSquare);
+  if (/\bwins\b|checkmate/.test(idea)) return `${best} ${idea}.`;
+  return `${best} ${idea ? `${idea} and ` : ''}${keepPhrase(epBest)}.`;
 }
 
 /** Why a move is bad: what the opponent's best reply does to us. */
@@ -129,7 +147,7 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
       return {
         text: `This allows ${replySan}, which ${tactic.text} - you lose ${what}.`,
         squares: tactic.squares ?? [],
-        tags: [tactic.kind, 'losesMaterial'],
+        tags: [`allows:${tactic.kind}`, 'losesMaterial'],
       };
     }
     return {
@@ -138,7 +156,7 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
       tags: ['losesMaterial'],
     };
   }
-  if (tactic) return { text: `It allows ${replySan}, which ${tactic.text}.`, squares: tactic.squares ?? [], tags: [tactic.kind] };
+  if (tactic) return { text: `It allows ${replySan}, which ${tactic.text}.`, squares: tactic.squares ?? [], tags: [`allows:${tactic.kind}`] };
   if (replyMotifs.some((m) => m.kind === 'threatensMate'))
     return { text: `Your opponent gets a dangerous attack with ${replySan}.`, squares: [], tags: ['attack'] };
   return { text: '', squares: [], tags: [] };
@@ -243,7 +261,7 @@ export function explainMove(input: ExplainInput): Explanation {
       return {
         headline: `${san} is a miss`,
         comment: parts.join(' '),
-        tags: [...tags, 'missedTactic'],
+        tags: [...tags, 'missedTactic', ...(/checkmate/.test(idea) ? ['missedMate'] : [])],
         squares: pv ? [pv.slice(0, 2), pv.slice(2, 4)] : [],
       };
     }
@@ -254,24 +272,34 @@ export function explainMove(input: ExplainInput): Explanation {
       const why = punishment(input);
       const idea = bestMoveIdea(before, color, input.recaptureSquare);
       const parts: string[] = [];
+      const extra: string[] = [];
       if (input.isBook) parts.push('This is a known opening line, but the engine does not trust it.');
       const bestUci = before.lines[0]?.pv[0];
+      if (/checkmate/.test(idea)) extra.push('missedMate');
       if (why.text) {
         parts.push(why.text);
-        if (best) parts.push(`Best was ${best}${idea ? `, which ${idea}` : ''}.`);
+        if (best)
+          parts.push(
+            `Best was ${best}, which ${/\bwins\b|checkmate/.test(idea) ? idea : `${idea ? `${idea} and ` : ''}${keepPhrase(input.epBefore)}`}.`,
+          );
       } else if (best && bestUci && input.recaptureSquare === bestUci.slice(2, 4) && input.downMaterial && input.lostPiece) {
         // The opponent just captured and we didn't take back.
         const retaken = new Chess(before.fen).get(bestUci.slice(2, 4) as Square)?.type;
         parts.push(
           `You needed to recapture with ${best}${retaken ? `, taking back the ${PIECE_NAME[retaken]}` : ''} - otherwise you simply stay a ${PIECE_NAME[input.lostPiece]} down.`,
         );
+        extra.push('missedRecapture');
       } else if (best && (/checkmate/.test(idea) || (/^wins /.test(idea) && (cls === 'inaccuracy' || bestGain(before, color) >= 2)))) {
         parts.push(`This misses ${best}, which ${idea}.`);
+        extra.push('missedWin');
       } else {
         parts.push(evalShift(input.epBefore, input.epAfter));
-        if (best) parts.push(`Best was ${best}${idea ? `, which ${idea}` : ''}.`);
+        if (best)
+          parts.push(
+            `Best was ${best}, which ${/\bwins\b|checkmate/.test(idea) ? idea : `${idea ? `${idea} and ` : ''}${keepPhrase(input.epBefore)}`}.`,
+          );
       }
-      return { headline: `${san} ${verdict}`, comment: parts.join(' '), tags: [...tags, ...why.tags], squares: why.squares };
+      return { headline: `${san} ${verdict}`, comment: parts.join(' '), tags: [...tags, ...why.tags, ...extra], squares: why.squares };
     }
   }
 }

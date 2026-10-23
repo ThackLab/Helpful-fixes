@@ -6,6 +6,7 @@ import { it } from 'vitest';
 import { setOpeningBook } from '../lib/chess/openings';
 import { reviewGame } from '../lib/review/review';
 import { CLASS_META } from '../lib/review/types';
+import { gameLessons, moveLesson } from '../lib/review/lessons';
 import { nodeEngine } from './nodeEngine';
 
 const GAMES: Record<string, string> = {
@@ -39,6 +40,15 @@ it.skipIf(!process.env.REVIEW_DEMO)('review demo', { timeout: 600000 }, async ()
   console.log('WHITE', JSON.stringify({ ...review.white, counts: undefined }), JSON.stringify(review.white.counts));
   console.log('BLACK', JSON.stringify({ ...review.black, counts: undefined }), JSON.stringify(review.black.counts));
   console.log('OPENING', review.opening);
+  const color = (process.env.COLOR as 'w' | 'b') ?? 'w';
+  const gl = gameLessons(review, { userColor: color, result: chess.header().Result ?? '*' });
+  for (const l of gl.lessons) console.log(`LESSON ${l.icon} ${l.title} | ${l.detail} | ${l.rule}`);
+  for (const st of gl.strengths) console.log(`STRENGTH ${st}`);
+  console.log('PRACTICE', gl.practice.map((p) => review.moves[p].san).join(' '));
+  for (const m of review.moves) {
+    const ml = moveLesson(review, m.ply);
+    if (ml && m.color === color) console.log(`  ${m.san}: ${ml.info.title}`);
+  }
   console.log('SUMMARY', review.summary);
   engines.forEach((e) => e.terminate());
 });
