@@ -4,6 +4,7 @@ import { canUseThreads, hardwareThreads } from '../lib/engine/manager';
 import { exportAll, importAll, wipeAll, type Backup } from '../lib/storage/db';
 import { useProfile } from '../state/profile';
 import { useSettings, type BoardTheme } from '../state/settings';
+import { saveTextFile } from '../lib/platform';
 
 const THEMES: { id: BoardTheme; light: string; dark: string }[] = [
   { id: 'green', light: '#eeeed2', dark: '#769656' },
@@ -34,12 +35,12 @@ export function SettingsPage() {
 
   const download = async () => {
     const data = await exportAll(JSON.parse(localStorage.getItem('outpost.profile') ?? 'null'));
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `outpost-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      const where = saveTextFile(`outpost-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json', JSON.stringify(data));
+      if (where) toast(`Backup saved to ${where}`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not save the backup');
+    }
   };
 
   const restore = async (file: File) => {

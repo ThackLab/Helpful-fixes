@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { Color } from 'chess.js';
 import { EnginePool, defaultPoolSize } from '../lib/engine/manager';
+import { isMobile } from '../lib/platform';
 import { loadOpeningBook } from '../lib/chess/openings';
 import { analysePositions, buildReview } from '../lib/review/review';
 import type { GameReview, PositionEval } from '../lib/review/types';
@@ -33,7 +34,7 @@ let poolTimer: ReturnType<typeof setTimeout> | undefined;
 
 function acquirePool() {
   clearTimeout(poolTimer);
-  pool ??= new EnginePool(defaultPoolSize(), 32);
+  pool ??= new EnginePool(defaultPoolSize(), isMobile ? 16 : 32);
   poolUsers++;
   return pool;
 }
@@ -145,4 +146,3 @@ export const useReviewer = create<ReviewerStore>()((set, get) => ({
   },
   cancel: (gameId) => controllers.get(gameId)?.abort(),
 }));
-

@@ -1,4 +1,5 @@
 import { Engine, workerTransport } from './engine';
+import { isMobile } from '../platform';
 
 const base = import.meta.env.BASE_URL;
 
@@ -67,5 +68,6 @@ export class EnginePool {
 
 export function defaultPoolSize() {
   const n = hardwareThreads();
-  return Math.min(6, Math.max(1, n - 1));
+  // Each engine holds its own WASM heap and hash table; phones have less memory to spare.
+  return Math.min(isMobile ? 3 : 6, Math.max(1, n - 1));
 }

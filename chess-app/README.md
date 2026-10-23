@@ -30,6 +30,19 @@ npm run dev        # http://localhost:5173
 
 The dev and preview servers send cross-origin-isolation headers, so the analysis board uses the multi-threaded engine. On hosts that can't send those headers (e.g. GitHub Pages), it falls back to the single-threaded engine automatically. Game reviews always run several engines in parallel.
 
+### Android app (APK)
+
+```bash
+cd chess-app
+./android/build-apk.sh      # -> android/build/outpost-chess.apk
+```
+
+This needs only a JDK (17+), Node and curl; you don't need the Android SDK or Gradle. The script downloads a few pinned build tools (checksums in `android/tools.sha256`): the Android API jar, Google's d8 compiler, the aapt2 packaged inside Apktool, and uber-apk-signer. The app is a small WebView wrapper (`android/src/.../MainActivity.java`) that serves the web build straight from the APK, so it works fully offline. It adds a native bridge for saving files to *Downloads* and for the clipboard.
+
+To install it, copy the APK to your phone, open it, and allow "install unknown apps" for your browser or file manager when Android asks.
+
+By default the APK is signed with a public debug key, which is fine for your own phone and lets newer builds install over older ones. To use your own key, set `KEYSTORE`, `KS_PASS`, `KEY_ALIAS` and `KEY_PASS`.
+
 ### Deploy to GitHub Pages
 
 `.github/workflows/chess-app-pages.yml` tests and builds the app on every PR and deploys it on pushes to `main`. To turn deployment on, go to *Settings → Pages → Build and deployment*, set the source to **GitHub Actions**, then re-run the workflow.

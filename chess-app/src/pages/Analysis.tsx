@@ -30,6 +30,7 @@ import { navigate } from '../lib/router';
 import { playSound, soundForSan } from '../lib/sound';
 import { getGame, newId, saveGame, type GameRecord } from '../lib/storage/db';
 import { useSettings } from '../state/settings';
+import { copyText, saveTextFile } from '../lib/platform';
 
 const LS_KEY = 'outpost.analysis';
 
@@ -435,7 +436,14 @@ export function AnalysisPage({ query }: { query: URLSearchParams }) {
                   setSourceGame(null);
                 },
               },
-              { label: 'Copy FEN', run: () => void navigator.clipboard?.writeText(node.fen).then(() => toast('FEN copied')) },
+              {
+                label: 'Copy FEN',
+                run: () =>
+                  void copyText(node.fen).then(
+                    () => toast('FEN copied'),
+                    () => toast('Copy failed'),
+                  ),
+              },
               { label: 'Play from here vs bot', run: () => navigate(`/play?fen=${encodeURIComponent(node.fen)}`) },
             ]}
           />
@@ -462,18 +470,26 @@ export function AnalysisPage({ query }: { query: URLSearchParams }) {
           </div>
           <textarea readOnly rows={12} value={pgnText} onFocus={(e) => e.target.select()} />
           <div className="row" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
-            <button className="btn" onClick={() => void navigator.clipboard?.writeText(pgnText).then(() => toast('PGN copied'))}>
+            <button
+              className="btn"
+              onClick={() =>
+                void copyText(pgnText).then(
+                  () => toast('PGN copied'),
+                  () => toast('Copy failed'),
+                )
+              }
+            >
               Copy PGN
             </button>
             <button
               className="btn primary"
               onClick={() => {
-                const blob = new Blob([pgnText], { type: 'application/x-chess-pgn' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'analysis.pgn';
-                a.click();
-                URL.revokeObjectURL(a.href);
+                try {
+                  const where = saveTextFile('analysis.pgn', 'application/x-chess-pgn', pgnText);
+                  if (where) toast(`Saved to ${where}`);
+                } catch {
+                  toast('Could not save the file');
+                }
               }}
             >
               Download .pgn

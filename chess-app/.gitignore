@@ -5,3 +5,5 @@ public/engine
 test-results
 playwright-report
 src/styles/pieces.generated.css
+android/.tools
+android/build
