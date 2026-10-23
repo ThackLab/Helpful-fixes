@@ -49,7 +49,7 @@ export function App() {
       page = <HomePage />;
       break;
     case 'play':
-      page = <PlayPage />;
+      page = <PlayPage key={route.query.get('fen') ?? ''} initialFen={route.query.get('fen') ?? undefined} />;
       break;
     case 'game':
       page = <GamePage />;

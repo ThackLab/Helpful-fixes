@@ -102,9 +102,9 @@ function bookMove(ctx: BotMoveContext, chess: Chess, params: StrengthParams, rng
   if (!ctx.book) return null;
   const options = ctx.book.weightedMovesFrom(chess.fen()).filter((o) => legal.has(o.uci));
   if (!options.length) return null;
-  // Flatten popularity a bit so bots don't always play the same mainline.
+  // Flatten popularity slightly so bots don't always play the same mainline.
   return pickWeighted(
-    options.map((o) => ({ item: o.uci, w: Math.pow(o.weight, 0.6) })),
+    options.map((o) => ({ item: o.uci, w: Math.pow(o.weight, 0.85) })),
     rng,
   );
 }

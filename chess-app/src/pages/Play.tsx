@@ -39,10 +39,10 @@ function loadSetup(): Setup {
   }
 }
 
-export function PlayPage() {
+export function PlayPage({ initialFen }: { initialFen?: string }) {
   const [setup, setSetupState] = useState<Setup>(loadSetup);
-  const [fen, setFen] = useState('');
-  const [showFen, setShowFen] = useState(false);
+  const [fen, setFen] = useState(initialFen ?? '');
+  const [showFen, setShowFen] = useState(!!initialFen);
   const rating = useProfile((s) => s.rating);
   const live = useLiveGame((s) => s.game);
   const start = useLiveGame((s) => s.start);

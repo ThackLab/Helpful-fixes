@@ -1,8 +1,8 @@
 // The "coach": turns engine numbers into plain-English explanations by
 // replaying the engine's lines and recognising common tactical patterns.
-import { Chess, type Color, type PieceSymbol } from 'chess.js';
+import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js';
 import { TACTICAL, describeMaterial, hangingPieces, lineMaterial, motifSentence, moveMotifs, type Motif } from '../chess/tactics';
-import { PIECE_NAME, formatLine, playUci } from '../chess/utils';
+import { PIECE_NAME, PIECE_VALUE, formatLine, playUci } from '../chess/utils';
 import type { Score } from '../engine/uci';
 import { evalScore } from './classify';
 import type { Classification, PositionEval } from './types';
@@ -24,6 +24,10 @@ export interface ExplainInput {
   opening?: string;
   /** Square of the opponent's last capture, if it was one. */
   recaptureSquare?: string;
+  /** Our piece the opponent captured on their last move. */
+  lostPiece?: PieceSymbol;
+  /** We are behind in material compared with before our previous move. */
+  downMaterial?: boolean;
   opponentClassification?: Classification;
 }
 
@@ -103,17 +107,23 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
   if (mat.delta <= -1) {
     const what = describeMaterial(-mat.delta, mat.lostPieces, mat.wonPieces);
     const hanging = hangingPieces(new Chess(after.fen), color);
-    const hung = hanging.find((h) => h.square === reply.pv[0].slice(2, 4));
-    if (hung && !tactic) {
+    const target = reply.pv[0].slice(2, 4);
+    const hung = hanging.find((h) => h.square === target);
+    // Being recaptured after our own capture is an exchange, not a hanging piece.
+    const exchange = input.san.includes('x') && uci.slice(2, 4) === target;
+    if (hung && !tactic && !exchange) {
       const moved = uci.slice(2, 4) === hung.square;
       const piece = PIECE_NAME[hung.type];
-      return {
-        text: moved
-          ? `Your ${piece} on ${hung.square} can simply be taken: ${replySan} wins ${what}.`
-          : `This leaves your ${piece} on ${hung.square} ${hung.undefended ? 'undefended' : 'under-protected'}, and ${replySan} wins ${what}.`,
-        squares: [hung.square],
-        tags: ['hangs'],
-      };
+      const wholePiece = hung.loss >= PIECE_VALUE[hung.type];
+      const matches = Math.abs(-mat.delta - hung.loss) < 1 || what === `a ${piece}`;
+      let text: string;
+      if (!wholePiece)
+        text = `Your ${piece} on ${hung.square} is attacked more times than it is defended - the exchanges there cost you ${what} (${lineText(after, 4)}).`;
+      else if (!matches)
+        text = `This leaves your ${piece} on ${hung.square} ${hung.undefended ? 'undefended' : 'under-protected'}; ${replySan} starts a sequence that wins ${what} (${lineText(after, Math.min(10, Math.max(4, mat.plies - 1)))}).`;
+      else if (moved) text = `Your ${piece} on ${hung.square} can simply be taken: ${replySan} wins it.`;
+      else text = `This leaves your ${piece} on ${hung.square} ${hung.undefended ? 'undefended' : 'under-protected'}, and ${replySan} wins it.`;
+      return { text, squares: [hung.square], tags: wholePiece ? ['hangs'] : ['losesMaterial'] };
     }
     if (tactic) {
       return {
@@ -132,6 +142,12 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
   if (replyMotifs.some((m) => m.kind === 'threatensMate'))
     return { text: `Your opponent gets a dangerous attack with ${replySan}.`, squares: [], tags: ['attack'] };
   return { text: '', squares: [], tags: [] };
+}
+
+/** Material the engine's best line wins for `color` (pawn units). */
+function bestGain(p: PositionEval, color: Color): number {
+  const best = p.lines[0];
+  return best ? lineMaterial(p.fen, best.pv, color, 10).delta : 0;
 }
 
 function evalShift(epBefore: number, epAfter: number): string {
@@ -188,7 +204,12 @@ export function explainMove(input: ExplainInput): Explanation {
       const second = before.lines[1];
       const now = standing(input.epAfter);
       const keep = input.epAfter >= 0.57 ? `keeps you ${now}` : input.epAfter > 0.43 ? 'holds the balance' : 'keeps you fighting';
-      const alt = second?.san[0] ? ` The next best try, ${second.san[0]}, would leave you ${standing(input.epSecond ?? 0.5)}.` : '';
+      const secondStanding = standing(input.epSecond ?? 0.5);
+      const alt = second?.san[0]
+        ? secondStanding === now
+          ? ` The next best try, ${second.san[0]}, is much weaker.`
+          : ` The next best try, ${second.san[0]}, would leave you ${secondStanding}.`
+        : '';
       const punish =
         input.opponentClassification && ['mistake', 'blunder', 'inaccuracy', 'miss'].includes(input.opponentClassification)
           ? ' It punishes your opponent’s mistake.'
@@ -234,8 +255,22 @@ export function explainMove(input: ExplainInput): Explanation {
       const idea = bestMoveIdea(before, color, input.recaptureSquare);
       const parts: string[] = [];
       if (input.isBook) parts.push('This is a known opening line, but the engine does not trust it.');
-      parts.push(why.text || evalShift(input.epBefore, input.epAfter));
-      if (best) parts.push(`Best was ${best}${idea ? `, which ${idea}` : ''}.`);
+      const bestUci = before.lines[0]?.pv[0];
+      if (why.text) {
+        parts.push(why.text);
+        if (best) parts.push(`Best was ${best}${idea ? `, which ${idea}` : ''}.`);
+      } else if (best && bestUci && input.recaptureSquare === bestUci.slice(2, 4) && input.downMaterial && input.lostPiece) {
+        // The opponent just captured and we didn't take back.
+        const retaken = new Chess(before.fen).get(bestUci.slice(2, 4) as Square)?.type;
+        parts.push(
+          `You needed to recapture with ${best}${retaken ? `, taking back the ${PIECE_NAME[retaken]}` : ''} - otherwise you simply stay a ${PIECE_NAME[input.lostPiece]} down.`,
+        );
+      } else if (best && (/checkmate/.test(idea) || (/^wins /.test(idea) && (cls === 'inaccuracy' || bestGain(before, color) >= 2)))) {
+        parts.push(`This misses ${best}, which ${idea}.`);
+      } else {
+        parts.push(evalShift(input.epBefore, input.epAfter));
+        if (best) parts.push(`Best was ${best}${idea ? `, which ${idea}` : ''}.`);
+      }
       return { headline: `${san} ${verdict}`, comment: parts.join(' '), tags: [...tags, ...why.tags], squares: why.squares };
     }
   }

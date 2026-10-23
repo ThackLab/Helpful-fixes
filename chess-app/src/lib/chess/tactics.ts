@@ -295,9 +295,9 @@ export function moveMotifs(fenBefore: string, uci: string, recaptureSquare?: str
   if (hangingBefore.length) {
     const hangingAfter = new Set(hangingPieces(chess, me).map((h) => h.square));
     const saved = hangingBefore.filter((h) => !hangingAfter.has(h.square) && h.square !== m.from);
-    if (saved.length && !m.captured) out.push({ kind: 'defends', text: `defends the ${PIECE_NAME[saved[0].type]} on ${saved[0].square}` });
-    else if (hangingBefore.some((h) => h.square === m.from) && !hangingAfter.has(m.to))
-      out.push({ kind: 'escapes', text: `moves the ${name} out of danger` });
+    const escaped = hangingBefore.some((h) => h.square === m.from) && !hangingAfter.has(m.to);
+    if (escaped) out.push({ kind: 'escapes', text: `moves the ${name} out of danger` });
+    else if (saved.length && !m.captured) out.push({ kind: 'defends', text: `defends the ${PIECE_NAME[saved[0].type]} on ${saved[0].square}` });
   }
 
   // Quiet positional ideas (only reported when nothing sharper happened).
@@ -326,8 +326,8 @@ const MOTIF_PRIORITY: MotifKind[] = [
   'recapture',
   'attacks',
   'castle',
-  'defends',
   'escapes',
+  'defends',
   'develops',
   'centre',
   'trade',

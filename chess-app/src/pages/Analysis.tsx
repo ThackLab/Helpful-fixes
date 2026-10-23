@@ -436,7 +436,7 @@ export function AnalysisPage({ query }: { query: URLSearchParams }) {
                 },
               },
               { label: 'Copy FEN', run: () => void navigator.clipboard?.writeText(node.fen).then(() => toast('FEN copied')) },
-              { label: 'Play from here vs bot', run: () => navigate('/play') },
+              { label: 'Play from here vs bot', run: () => navigate(`/play?fen=${encodeURIComponent(node.fen)}`) },
             ]}
           />
         </div>

@@ -1,7 +1,7 @@
-import { Chess, type Color } from 'chess.js';
+import { Chess, type Color, type Square } from 'chess.js';
 import type { Engine } from '../engine/engine';
 import type { OpeningBook } from '../chess/openings';
-import { formatLine, moveToUci, nonPawnPieces, sanLine } from '../chess/utils';
+import { formatLine, materialBalance, moveToUci, nonPawnPieces, sanLine } from '../chess/utils';
 import { estimateRating, gameAccuracy, moveAccuracy } from './accuracy';
 import { classifyMove, evalScore } from './classify';
 import { explainMove } from './explain';
@@ -202,6 +202,9 @@ export function buildReview(
     const after = positions[i + 1];
     const prev = moves[i - 1];
     const recaptureSquare = prev && prev.san.includes('x') ? prev.uci.slice(2, 4) : undefined;
+    const lostPiece = recaptureSquare ? new Chess(plies[i - 1].fenBefore).get(recaptureSquare as Square)?.type : undefined;
+    // Behind compared with before our own previous move, i.e. the capture wasn't a reply to ours.
+    const downMaterial = i >= 2 && materialBalance(new Chess(p.fenBefore), p.color) < materialBalance(new Chess(plies[i - 2].fenBefore), p.color);
     const cls = classifyMove({
       before,
       after,
@@ -230,6 +233,8 @@ export function buildReview(
       isBook: bookFlags[i],
       opening: openingName,
       recaptureSquare,
+      lostPiece,
+      downMaterial,
       opponentClassification: prev?.classification,
     });
     const scoreBefore = evalScore(before);
