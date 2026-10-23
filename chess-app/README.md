@@ -2,7 +2,7 @@
 
 A free, private, chess.com-style app that runs entirely in your browser:
 
-- **Play bots from 250 to 3200 Elo.** 17 bots with personalities, or pick any rating. Includes clocks (bullet to classical), hints, takebacks, premoves, draw offers and a training mode with a live eval bar.
+- **Play bots from 250 to 3200 Elo.** 17 bots with personalities, or pick any rating. Includes clocks (bullet to classical), hints, takebacks, premoves, draw offers and a training mode with a live eval bar. One tap on the home screen starts a game against your usual opponent, or against any bot in the row below it.
 - **A full game review after every game (optional, on by default).** Stockfish 18 analyses every position on all your CPU cores, then:
   - gives each player an **accuracy** score (lichess's published formula), a **game rating** estimate and phase-by-phase ratings (opening / middlegame / endgame);
   - classifies every move as **Brilliant, Great, Best, Excellent, Good, Book, Inaccuracy, Mistake, Miss or Blunder**, using chess.com's expected-points thresholds;
@@ -13,7 +13,12 @@ A free, private, chess.com-style app that runs entirely in your browser:
   - **Lessons from this game:** groups your mistakes into recurring themes (hanging pieces, forks, back-rank weakness, missed recaptures, early queen moves, king safety, endgame technique and more), ranked by how many points they cost you, plus what you did well;
   - writes a game summary;
   - optionally lets you **ask an AI coach** follow-up questions in plain English (Claude, with your own Anthropic API key).
-- **Learn from your mistakes.** Every blunder, mistake and miss you make becomes a practice puzzle, scheduled with spaced repetition until you've learned it. Each puzzle has hints and the lesson it teaches.
+- **Learn tactics properly.** A course of short interactive lessons, each with explanations and diagrams, worked examples you step through, positions to solve and a "how to spot it" checklist:
+  - **Tactics:** forks (knight, pawn, queen and royal forks), *setting up* forks (decoys, checks, removing the guard), pins, skewers, discovered attacks and double check, removing the defender, overloading, loose pieces;
+  - **Checkmate patterns:** back-rank mate, smothered mate and Philidor's legacy;
+  - **Endgames:** mate with the queen, mate with the rook, and king and pawn (the opposition), played out against Stockfish.
+- **Puzzle trainer** with a tactics rating, themed sets (forks, pins, mates, ...), two-step hints and an explanation of every solution. If you play a wrong move, it shows the reply that refutes it.
+- **Learn from your mistakes.** Every blunder, mistake and miss you make becomes a practice puzzle, scheduled with spaced repetition until you've learned it. Each puzzle has hints and the lesson it teaches. The home screen and the Learn page recommend the lesson that matches the mistakes in your recent games, and each game review links to the relevant lesson.
 - **Built for phones.** On the game and review screens the board fills the width of the screen, with no navigation bar and no page scrolling, so the board never moves. The controls sit in a thumb bar at the bottom.
 - **Analysis board.** Variation tree, 1–5 engine lines with arrows, threat view, PGN import (variations, comments and NAGs are kept), FEN import, position editor, PGN export, and one-click full review of the main line.
 - **Review your chess.com and lichess games for free.** Import recent games by username, or paste or upload any PGN, including multi-game files.
@@ -72,6 +77,12 @@ Bot-vs-bot matches can be run with `BOT_MATCH="1000,1300,10" npx vitest run src/
 
 `REVIEW_DEMO=1 npx vitest run src/test/reviewDemo.test.ts --silent=false` prints a full review of Morphy's Opera Game in the terminal.
 
+## The tactics course and puzzles
+
+- The lessons live in `src/lib/learn/curriculum.ts`. `npm test` checks that every position and move is legal. `CURRICULUM=1 npx vitest run src/test/curriculum.test.ts --silent=false` also checks each solution against Stockfish: the key move has to be the engine's best and clearly better than any alternative.
+- `public/puzzles.json` holds the trainer's puzzles. They are generated offline from bot-vs-bot games: `PUZZLE_GEN="<games>,<workers>" npx vitest run src/test/puzzleGen.test.ts --silent=false`. The generator looks for positions where one side has just blundered and the other has exactly one winning continuation. It follows the engine's line for as long as your move stays the only good one, and tags each puzzle by tactic (fork, pin, skewer, discovered attack, double check, removing the defender, back-rank or smothered mate, and so on). New puzzles are merged into the file.
+- `PROBE=fens.json npx vitest run src/test/probe.test.ts --silent=false` prints Stockfish's top lines for a list of positions, which helps when writing new lessons.
+
 ## Development
 
 ```bash
@@ -88,8 +99,9 @@ Project layout:
 | `src/lib/review` | win probability, accuracy, classification, coach explanations, the review pipeline |
 | `src/lib/chess` | PGN tree parser/writer, tactics detection, opening book |
 | `src/lib/bots` | bot roster and move selection |
+| `src/lib/learn` | the tactics course, puzzle tagging and loading, training recommendations |
 | `src/lib/coach` | optional Claude-powered coach |
-| `src/pages` | Home, Play, Game, Review, Analysis, Games, Practice, Import, Settings |
+| `src/pages` | Home, Play, Game, Review, Learn, Lesson, Tactics, Analysis, Games, Practice, Import, Settings |
 | `scripts/prepare.mjs` | copies the Stockfish WASM into `public/engine` (runs automatically before dev/build/test) |
 | `scripts/build-openings.mjs` | rebuilds `public/openings.json` from `data/openings/*.tsv` |
 

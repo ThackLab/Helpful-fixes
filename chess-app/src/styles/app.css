@@ -1698,6 +1698,356 @@ cg-board square.hl-key {
 
 /* ---------------------------------------------------------------- responsive */
 
+/* ------------------------------------------------------------------ Learn */
+.page-title {
+  margin: 4px 0 14px;
+}
+
+.train-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.train-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.train-card > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.train-card.primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 0 #5d8c32;
+}
+
+.train-card.primary .muted {
+  color: #f1f8e9;
+}
+
+.train-ico {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.focus-card {
+  background: #f1f6ea;
+  color: #262421;
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+
+.focus-card p {
+  margin: 6px 0 10px;
+}
+
+.focus-card .coach-label {
+  color: #5d8c32;
+}
+
+.lesson-group h2 {
+  font-size: 1.05rem;
+  margin: 18px 0 8px;
+}
+
+.lesson-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.lesson-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.lesson-card:hover {
+  background: var(--panel-3);
+}
+
+.lesson-card-ico {
+  font-size: 1.7rem;
+  width: 40px;
+  text-align: center;
+  flex: none;
+}
+
+.lesson-card-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lesson-card .muted {
+  font-size: 0.86rem;
+}
+
+.lesson-card .tick {
+  color: var(--accent);
+}
+
+.lesson-meter,
+.lesson-progress {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: #ffffff1a;
+  overflow: hidden;
+}
+
+.lesson-meter > span,
+.lesson-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+.lesson-progress {
+  border-radius: 0;
+  height: 3px;
+}
+
+.lesson-card-foot {
+  font-size: 0.78rem;
+}
+
+.lesson-top {
+  min-height: 40px;
+}
+
+.coach-result {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.coach-result.good {
+  color: #5d8c32;
+}
+
+.wrong-text {
+  color: #b33a2b;
+}
+
+.good-text {
+  color: #5d8c32;
+}
+
+.course-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #5d8c32;
+  text-decoration: none;
+}
+
+.lesson-item .course-link {
+  color: var(--accent);
+}
+
+.spot-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.92rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.coach-card .chip {
+  background: #eef3e8;
+  color: #3d5a20;
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+
+.rating-chip {
+  background: var(--panel-3);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 700;
+}
+
+.rating-chip em {
+  font-style: normal;
+  font-size: 0.8rem;
+  margin-left: 5px;
+}
+
+.rating-chip em.up {
+  color: var(--accent);
+}
+
+.rating-chip em.down {
+  color: #ff8a7a;
+}
+
+.board-placeholder {
+  width: var(--board);
+  aspect-ratio: 1;
+  background: var(--panel-2);
+}
+
+/* ------------------------------------------------------------------ Home */
+.home {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.quick-play {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.qp-opponent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qp-opponent .avatar.lg {
+  width: 60px;
+  height: 60px;
+  font-size: 2.2rem;
+}
+
+.qp-who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.qp-name {
+  font-size: 1.3rem;
+}
+
+.qp-change {
+  margin-left: auto;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.qp-go {
+  width: 100%;
+  font-size: 1.35rem;
+  padding: 16px;
+}
+
+.qp-options {
+  display: grid;
+  gap: 8px;
+}
+
+.chip.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.bot-strip-head h2,
+.home-h2 {
+  font-size: 1rem;
+  margin: 18px 0 8px;
+}
+
+.bot-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.bot-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.bot-chip {
+  flex: none;
+  width: 78px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.bot-chip.suggested {
+  border-color: var(--accent);
+}
+
+.bot-chip:disabled {
+  opacity: 0.4;
+}
+
+.bot-chip .nm {
+  font-weight: 700;
+  font-size: 0.82rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-chip .elo {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(3, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 14px 0;
+}
+
+.home-stats .stat .v {
+  font-size: 1.25rem;
+}
+
+.home-links {
+  margin-top: 14px;
+}
+
 @media (max-width: 1100px) {
   .board-column {
     --board: min(calc(100vh - 128px), calc(100vw - var(--sidebar) - 400px));
@@ -1864,6 +2214,41 @@ cg-board square.hl-key {
   }
   .review-screen .panel-body {
     padding: 10px 12px 16px;
+  }
+  .lesson-screen .board-column {
+    /* Lessons and puzzles: no tab bar, room under the board for the explanation. */
+    --board: min(100vw, calc(100dvh - 43px - 62px - 200px));
+  }
+  .lesson-screen::before {
+    display: none;
+  }
+  .lesson-screen .side-panel {
+    flex: 1 1 auto;
+  }
+  .lesson-screen .panel-body {
+    padding: 10px 12px 16px;
+  }
+  .nav-link.desk-only {
+    display: none;
+  }
+  .home {
+    padding: 12px 12px 20px;
+  }
+  .home-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .home-spark {
+    grid-column: 1 / -1;
+  }
+  .train-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .learn-page {
+    padding: 12px 12px 24px;
+  }
+  .page-title {
+    font-size: 1.4rem;
   }
   .only-desktop {
     display: none !important;

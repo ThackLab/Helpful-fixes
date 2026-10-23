@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { navigate } from '../lib/router';
-import { listPuzzles, onDbChange } from '../lib/storage/db';
+import { BOTS, findBot } from '../lib/bots/bots';
+import { LESSONS } from '../lib/learn/curriculum';
+import { useTrainingFocus } from '../lib/learn/focus';
 import { useProfile } from '../state/profile';
 import { useLiveGame } from '../state/game';
-import { findBot } from '../lib/bots/bots';
-import { GameRow, useGames, userOutcome } from './Games';
+import { useLearn } from '../state/learn';
+import { TIME_CONTROLS, hasSavedSetup, loadSetup, saveSetup, setupBot, startBotGame, suggestedBot, type Setup } from '../state/playSetup';
+import { GameRow, useGames } from './Games';
+import { nextLessonFor, useDueCount } from './Learn';
 
-function Sparkline({ values, width = 260, height = 56 }: { values: number[]; width?: number; height?: number }) {
-  if (values.length < 2)
-    return (
-      <div className="faint" style={{ fontSize: '0.85rem' }}>
-        Play a few rated bot games to see your rating graph.
-      </div>
-    );
+function Sparkline({ values, width = 260, height = 40 }: { values: number[]; width?: number; height?: number }) {
+  if (values.length < 2) return null;
   const min = Math.min(...values) - 20;
   const max = Math.max(...values) + 20;
   const pts = values.map((v, i) => `${((i / (values.length - 1)) * width).toFixed(1)},${(height - ((v - min) / (max - min)) * height).toFixed(1)}`);
@@ -23,158 +22,216 @@ function Sparkline({ values, width = 260, height = 56 }: { values: number[]; wid
   );
 }
 
+/** The clocks offered as one-tap chips on the home screen. */
+const QUICK_TCS = [0, 2, 3, 4, 5];
+
 export function HomePage() {
   const profile = useProfile();
   const games = useGames();
   const live = useLiveGame((s) => s.game);
-  const [due, setDue] = useState(0);
-  useEffect(() => {
-    const load = () => listPuzzles().then((ps) => setDue(ps.filter((p) => p.due <= Date.now()).length));
-    void load();
-    return onDbChange(load);
-  }, []);
+  const learn = useLearn();
+  const focus = useTrainingFocus();
+  const due = useDueCount();
+  const [setup, setSetupState] = useState<Setup>(() => {
+    const s = loadSetup();
+    return hasSavedSetup() ? s : { ...s, botId: suggestedBot(profile.rating).id };
+  });
+  const setSetup = (patch: Partial<Setup>) => {
+    const next = { ...setup, ...patch };
+    setSetupState(next);
+    saveSetup(next);
+  };
+  const bot = setupBot(setup);
+  const suggested = suggestedBot(profile.rating);
+  const play = (botId?: string) => {
+    const s = botId ? { ...setup, botId } : setup;
+    saveSetup(s);
+    startBotGame(s);
+  };
 
-  const stats = useMemo(() => {
-    const mine = (games ?? []).filter((g) => g.userColor && g.accuracy);
-    const recent = mine.slice(0, 10);
-    const avgAcc = recent.length ? recent.reduce((a, g) => a + g.accuracy![g.userColor!], 0) / recent.length : null;
-    const openings = new Map<string, { n: number; score: number }>();
-    for (const g of games ?? []) {
-      if (!g.opening || !g.userColor) continue;
-      const fam = g.opening.split(':')[0];
-      const o = userOutcome(g);
-      const cur = openings.get(fam) ?? { n: 0, score: 0 };
-      cur.n++;
-      cur.score += o === 'win' ? 1 : o === 'draw' ? 0.5 : 0;
-      openings.set(fam, cur);
-    }
-    const topOpenings = [...openings.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 5);
-    return { avgAcc, topOpenings };
+  const avgAcc = useMemo(() => {
+    const recent = (games ?? []).filter((g) => g.userColor && g.accuracy).slice(0, 10);
+    return recent.length ? recent.reduce((a, g) => a + g.accuracy![g.userColor!], 0) / recent.length : null;
   }, [games]);
+  const nextLesson = nextLessonFor(learn.lessons);
+  // Start the opponent strip at your level (scrolls the strip only, never the page).
+  const strip = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = strip.current;
+    const el = box?.querySelector<HTMLElement>('.bot-chip.suggested');
+    if (box && el) box.scrollLeft = el.offsetLeft - box.offsetLeft - (box.clientWidth - el.offsetWidth) / 2;
+  }, []);
+  const lessonsDone = LESSONS.filter((l) => learn.lessons[l.id]?.done).length;
 
   return (
-    <div className="page">
-      <section className="hero">
-        <div>
-          <h1>Your chess, reviewed properly.</h1>
-          <p className="muted" style={{ fontSize: '1.05rem' }}>
-            Play bots from 250 to 3200 Elo, get a full Stockfish game review with coach explanations after every game, and analyse any PGN. Everything
-            runs in your browser - free, private and offline-capable.
-          </p>
-          <div className="row" style={{ marginTop: 16 }}>
-            {live?.status === 'playing' ? (
-              <button className="btn primary big" onClick={() => navigate('/game')}>
-                ▶ Resume vs {findBot(live.botId)?.name}
-              </button>
-            ) : (
-              <button className="btn primary big" onClick={() => navigate('/play')}>
-                ♟️ Play a bot
-              </button>
-            )}
-            <button className="btn big" onClick={() => navigate('/analysis')}>
-              🔬 Analysis board
-            </button>
+    <div className="page home">
+      {live?.status === 'playing' ? (
+        <section className="quick-play">
+          <div className="qp-opponent">
+            <div className="avatar lg" style={{ background: findBot(live.botId)?.tint }}>
+              {findBot(live.botId)?.avatar}
+            </div>
+            <div>
+              <div className="faint">Game in progress</div>
+              <b className="qp-name">{findBot(live.botId)?.name ?? 'Bot'}</b>
+            </div>
           </div>
+          <button className="btn primary big qp-go" onClick={() => navigate('/game')}>
+            ▶ Resume game
+          </button>
+        </section>
+      ) : (
+        <section className="quick-play">
+          <div className="qp-opponent">
+            <div className="avatar lg" style={{ background: bot.tint }}>
+              {bot.avatar}
+            </div>
+            <div className="qp-who">
+              <b className="qp-name">{bot.name}</b>
+              <span className="faint">
+                {bot.elo} Elo{bot.id === suggested.id ? ' · your level' : ''}
+              </span>
+            </div>
+            <a className="qp-change" href="#/play">
+              More options
+            </a>
+          </div>
+          <button className="btn primary big qp-go" onClick={() => play()}>
+            ▶ Play
+          </button>
+          <div className="qp-options">
+            <div className="chip-row">
+              {QUICK_TCS.map((i) => (
+                <button key={i} className={`chip ${setup.tc === i ? 'on' : ''}`} onClick={() => setSetup({ tc: i })}>
+                  {TIME_CONTROLS[i].label}
+                </button>
+              ))}
+            </div>
+            <div className="chip-row">
+              {(['w', 'random', 'b'] as const).map((c) => (
+                <button key={c} className={`chip ${setup.color === c ? 'on' : ''}`} onClick={() => setSetup({ color: c })}>
+                  {c === 'w' ? '♔ White' : c === 'b' ? '♚ Black' : '🎲 Random'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="bot-strip-head">
+        <h2>Tap an opponent to start</h2>
+      </div>
+      <div className="bot-strip" ref={strip}>
+        {BOTS.map((b) => (
+          <button
+            key={b.id}
+            className={`bot-chip ${b.id === suggested.id ? 'suggested' : ''}`}
+            onClick={() => play(b.id)}
+            disabled={live?.status === 'playing'}
+          >
+            <span className="avatar" style={{ background: b.tint }}>
+              {b.avatar}
+            </span>
+            <span className="nm">{b.name}</span>
+            <span className="elo">{b.elo}</span>
+          </button>
+        ))}
+      </div>
+
+      <h2 className="home-h2">Train</h2>
+      <div className="train-grid">
+        {focus ? (
+          <button className="train-card primary" onClick={() => navigate(`/learn/${focus.lesson.id}`)}>
+            <span className="train-ico">{focus.lesson.icon}</span>
+            <span>
+              <b>Work on: {focus.lesson.title}</b>
+              <span className="muted">
+                {focus.title} cost you {focus.count} time{focus.count === 1 ? '' : 's'} in recent games
+              </span>
+            </span>
+          </button>
+        ) : (
+          <button className="train-card primary" onClick={() => navigate(`/learn/${nextLesson.id}`)}>
+            <span className="train-ico">{nextLesson.icon}</span>
+            <span>
+              <b>
+                {lessonsDone ? 'Next lesson' : 'First lesson'}: {nextLesson.title}
+              </b>
+              <span className="muted">{nextLesson.summary}</span>
+            </span>
+          </button>
+        )}
+        <button className="train-card" onClick={() => navigate('/tactics')}>
+          <span className="train-ico">🧩</span>
+          <span>
+            <b>Puzzles</b>
+            <span className="muted">Tactics rating {learn.rating}</span>
+          </span>
+        </button>
+        <button className="train-card" onClick={() => navigate(due ? '/practice' : '/learn')}>
+          <span className="train-ico">{due ? '🎯' : '🎓'}</span>
+          <span>
+            <b>{due ? `${due} of your mistakes to fix` : 'All lessons'}</b>
+            <span className="muted">{due ? 'From your reviewed games' : `${lessonsDone}/${LESSONS.length} done`}</span>
+          </span>
+        </button>
+      </div>
+
+      <section className="home-stats">
+        <div className="stat">
+          <span className="k">Rating</span>
+          <span className="v">{profile.rating}</span>
         </div>
-        <div className="card">
-          <div className="row" style={{ alignItems: 'flex-start' }}>
-            <div className="stat">
-              <span className="k">Rating vs bots</span>
-              <span className="v">{profile.rating}</span>
-            </div>
-            <span className="spacer" />
-            <div className="stat" style={{ textAlign: 'right' }}>
-              <span className="k">W / D / L</span>
-              <span className="v" style={{ fontSize: '1.2rem' }}>
-                {profile.wins} / {profile.draws} / {profile.losses}
-              </span>
-            </div>
-          </div>
+        <div className="stat">
+          <span className="k">W / D / L</span>
+          <span className="v">
+            {profile.wins}/{profile.draws}/{profile.losses}
+          </span>
+        </div>
+        <div className="stat">
+          <span className="k">Accuracy</span>
+          <span className="v">{avgAcc !== null ? `${avgAcc.toFixed(0)}%` : '–'}</span>
+        </div>
+        <div className="home-spark">
           <Sparkline values={profile.history.map((h) => h.rating)} />
-          <div className="row" style={{ marginTop: 8 }}>
-            <div className="stat">
-              <span className="k">Avg accuracy (last 10)</span>
-              <span className="v" style={{ fontSize: '1.2rem' }}>
-                {stats.avgAcc !== null ? `${stats.avgAcc.toFixed(1)}%` : '–'}
-              </span>
-            </div>
-            <span className="spacer" />
-            <div className="stat" style={{ textAlign: 'right' }}>
-              <span className="k">Practice due</span>
-              <span className="v" style={{ fontSize: '1.2rem' }}>
-                {due}
-              </span>
-            </div>
-          </div>
         </div>
       </section>
 
-      <div className="grid-cards" style={{ marginBottom: 26 }}>
-        <a className="action-card" href="#/play">
-          <span className="ico">🤖</span>
-          <span>
-            <b>Play bots</b>
-            <span className="muted">17 personalities, or any custom Elo</span>
-          </span>
-        </a>
+      <section className="card home-recent" style={{ padding: 0 }}>
+        <div className="row" style={{ padding: '12px 14px 4px' }}>
+          <h2 style={{ margin: 0 }}>Recent games</h2>
+          <span className="spacer" />
+          <a href="#/games">All games</a>
+        </div>
+        {games && games.length ? (
+          <table className="table">
+            <tbody>
+              {games.slice(0, 4).map((g) => (
+                <GameRow key={g.id} g={g} compact />
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty">No games yet - tap Play above, or import your games.</div>
+        )}
+      </section>
+
+      <div className="grid-cards home-links">
         <a className="action-card" href="#/import">
           <span className="ico">📥</span>
           <span>
             <b>Review chess.com / lichess games</b>
-            <span className="muted">Import by username or paste PGN</span>
-          </span>
-        </a>
-        <a className="action-card" href="#/practice">
-          <span className="ico">🎯</span>
-          <span>
-            <b>Learn from mistakes</b>
-            <span className="muted">Your own blunders as spaced-repetition puzzles</span>
+            <span className="muted">Import by username or paste a PGN</span>
           </span>
         </a>
         <a className="action-card" href="#/analysis">
-          <span className="ico">🧪</span>
+          <span className="ico">🔬</span>
           <span>
             <b>Analysis board</b>
-            <span className="muted">Multi-line engine, variations, PGN/FEN</span>
+            <span className="muted">Engine lines, variations, PGN and FEN</span>
           </span>
         </a>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(240px, 1fr)', gap: 18 }} className="home-grid">
-        <section className="card" style={{ padding: 0 }}>
-          <div className="row" style={{ padding: '14px 16px 4px' }}>
-            <h2 style={{ margin: 0 }}>Recent games</h2>
-            <span className="spacer" />
-            <a href="#/games">View all</a>
-          </div>
-          {games && games.length ? (
-            <table className="table">
-              <tbody>
-                {games.slice(0, 6).map((g) => (
-                  <GameRow key={g.id} g={g} compact />
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="empty">No games yet - play a bot or import your games to get started.</div>
-          )}
-        </section>
-        <section className="card">
-          <h2>Your openings</h2>
-          {stats.topOpenings.length ? (
-            stats.topOpenings.map(([name, o]) => (
-              <div key={name} className="row" style={{ padding: '5px 0', flexWrap: 'nowrap' }}>
-                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                <span className="faint">{o.n}×</span>
-                <b style={{ minWidth: 44, textAlign: 'right' }}>{Math.round((o.score / o.n) * 100)}%</b>
-              </div>
-            ))
-          ) : (
-            <div className="faint">Opening statistics appear after a few games.</div>
-          )}
-        </section>
-      </div>
-      <style>{`@media (max-width: 860px) { .home-grid { grid-template-columns: 1fr !important; } }`}</style>
     </div>
   );
 }

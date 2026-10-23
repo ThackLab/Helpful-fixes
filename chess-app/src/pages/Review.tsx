@@ -14,6 +14,7 @@ import { playSound, soundForSan } from '../lib/sound';
 import { evalScore } from '../lib/review/classify';
 import { gameLessons, moveLesson, type GameLessons } from '../lib/review/lessons';
 import { hintsFor, refutationText } from '../lib/review/hints';
+import { LESSON_FOR_THEME, findLesson } from '../lib/learn/curriculum';
 import { bestIdeaSentence } from '../lib/review/explain';
 import { CLASS_META, CLASS_ORDER, type Classification, type GameReview, type Phase, type ReviewedMove } from '../lib/review/types';
 import { expectedFor, scoreToExpected } from '../lib/review/winprob';
@@ -468,7 +469,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
                 <p className="coach-line">{formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
               </div>
             )}
-            {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} />}
+            {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} theme={lesson.theme} />}
             <div className="row">
               <button className="btn small" onClick={() => showLine(m.fenBefore, bestLineFor(m))}>
                 ▶ Play the line
@@ -501,7 +502,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         {m.bestSan && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
           <p className="coach-line">Best: {formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
         )}
-        {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} />}
+        {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} theme={lesson.theme} />}
         <div className="row" style={{ marginTop: 4 }}>
           {retryable && (
             <button className="btn small primary" onClick={() => setRetry({ state: 'try', attempts: 0 })}>
@@ -729,7 +730,18 @@ export function ReviewPage({ gameId }: { gameId: string }) {
   );
 }
 
-function LessonBox({ icon, title, rule }: { icon: string; title: string; rule: string }) {
+/** Link to the course lesson that teaches a review theme. */
+function CourseLink({ theme }: { theme: string }) {
+  const course = findLesson(LESSON_FOR_THEME[theme] ?? '');
+  if (!course) return null;
+  return (
+    <a className="course-link" href={`#/learn/${course.id}`}>
+      {course.icon} Take the “{course.title}” lesson ▸
+    </a>
+  );
+}
+
+function LessonBox({ icon, title, rule, theme }: { icon: string; title: string; rule: string; theme?: string }) {
   return (
     <div className="lesson-box">
       <div className="lesson-head">
@@ -740,6 +752,7 @@ function LessonBox({ icon, title, rule }: { icon: string; title: string; rule: s
         </span>
       </div>
       <p>{rule}</p>
+      {theme && <CourseLink theme={theme} />}
     </div>
   );
 }
@@ -756,6 +769,7 @@ function LessonList({ lessons, moves, onJump }: { lessons: GameLessons; moves: R
           </div>
           <p className="muted">{l.detail}</p>
           <p>{l.rule}</p>
+          <CourseLink theme={l.theme} />
           {l.plies.length > 0 && (
             <div className="row" style={{ gap: 6 }}>
               {l.plies.slice(0, 6).map((p) => (

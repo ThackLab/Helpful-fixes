@@ -1,43 +1,11 @@
 import { useState } from 'react';
-import type { Color } from 'chess.js';
-import { BOTS, customBot, findBot, type BotProfile } from '../lib/bots/bots';
+import { BOTS, findBot, type BotProfile } from '../lib/bots/bots';
 import { navigate } from '../lib/router';
 import { validateFen, START_FEN } from '../lib/chess/utils';
-import { useLiveGame, type TimeControl } from '../state/game';
+import { useLiveGame } from '../state/game';
 import { useProfile } from '../state/profile';
+import { TIME_CONTROLS, loadSetup, saveSetup, setupBot, startBotGame, suggestedBot, type Setup } from '../state/playSetup';
 import { Segmented, Toggle } from '../components/Widgets';
-import { playSound } from '../lib/sound';
-
-const TIME_CONTROLS: { label: string; tc: TimeControl | null }[] = [
-  { label: 'No clock', tc: null },
-  { label: '1 min', tc: { initial: 60_000, increment: 0 } },
-  { label: '3 | 2', tc: { initial: 180_000, increment: 2000 } },
-  { label: '5 min', tc: { initial: 300_000, increment: 0 } },
-  { label: '10 min', tc: { initial: 600_000, increment: 0 } },
-  { label: '15 | 10', tc: { initial: 900_000, increment: 10_000 } },
-  { label: '30 min', tc: { initial: 1_800_000, increment: 0 } },
-];
-
-const LS_KEY = 'outpost.play-setup';
-
-interface Setup {
-  botId: string;
-  color: 'w' | 'b' | 'random';
-  tc: number;
-  takebacks: boolean;
-  hints: boolean;
-  evalBar: boolean;
-  customElo: number;
-}
-
-function loadSetup(): Setup {
-  const def: Setup = { botId: 'hugo', color: 'w', tc: 0, takebacks: true, hints: true, evalBar: false, customElo: 1200 };
-  try {
-    return { ...def, ...JSON.parse(localStorage.getItem(LS_KEY) ?? '{}') };
-  } catch {
-    return def;
-  }
-}
 
 export function PlayPage({ initialFen }: { initialFen?: string }) {
   const [setup, setSetupState] = useState<Setup>(loadSetup);
@@ -45,33 +13,18 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
   const [showFen, setShowFen] = useState(!!initialFen);
   const rating = useProfile((s) => s.rating);
   const live = useLiveGame((s) => s.game);
-  const start = useLiveGame((s) => s.start);
   const setSetup = (patch: Partial<Setup>) => {
     const next = { ...setup, ...patch };
     setSetupState(next);
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+    saveSetup(next);
   };
-  const bot: BotProfile = setup.botId.startsWith('custom') ? customBot(setup.customElo) : (findBot(setup.botId) ?? BOTS[5]);
+  const bot: BotProfile = setupBot(setup);
   const fenError = showFen && fen.trim() ? validateFen(fen.trim()) : null;
-  const suggested = BOTS.reduce((best, b) => (Math.abs(b.elo - rating) < Math.abs(best.elo - rating) ? b : best), BOTS[0]);
+  const suggested = suggestedBot(rating);
 
   const begin = () => {
-    const userColor: Color = setup.color === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : setup.color;
-    start({
-      botId: bot.id,
-      userColor,
-      startFen: showFen && fen.trim() && !fenError ? fen.trim() : START_FEN,
-      timeControl: TIME_CONTROLS[setup.tc]?.tc ?? null,
-      takebacks: setup.takebacks,
-      hints: setup.hints,
-      evalBar: setup.evalBar,
-    });
-    playSound('start');
-    navigate('/game');
+    saveSetup(setup);
+    startBotGame(setup, showFen && fen.trim() && !fenError ? fen.trim() : START_FEN);
   };
 
   return (

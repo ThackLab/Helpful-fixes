@@ -13,14 +13,18 @@ import { GamesPage } from './pages/Games';
 import { PracticePage } from './pages/Practice';
 import { ImportPage } from './pages/Import';
 import { SettingsPage } from './pages/Settings';
+import { LearnPage } from './pages/Learn';
+import { LessonPage } from './pages/Lesson';
+import { TacticsPage } from './pages/Tactics';
 
-const NAV: { path: string; label: string; icon: string; match: (p: string) => boolean }[] = [
+const NAV: { path: string; label: string; icon: string; match: (p: string) => boolean; desktopOnly?: boolean }[] = [
   { path: '/', label: 'Home', icon: '🏠', match: (p) => p === '/' },
   { path: '/play', label: 'Play', icon: '♟️', match: (p) => p.startsWith('/play') || p.startsWith('/game') },
+  { path: '/learn', label: 'Learn', icon: '🎓', match: (p) => p.startsWith('/learn') || p.startsWith('/tactics') },
+  { path: '/practice', label: 'Practice', icon: '🎯', match: (p) => p.startsWith('/practice'), desktopOnly: true },
   { path: '/analysis', label: 'Analysis', icon: '🔬', match: (p) => p.startsWith('/analysis') },
   { path: '/games', label: 'Games', icon: '📚', match: (p) => p.startsWith('/games') || p.startsWith('/review') },
-  { path: '/practice', label: 'Practice', icon: '🎯', match: (p) => p.startsWith('/practice') },
-  { path: '/import', label: 'Import', icon: '📥', match: (p) => p.startsWith('/import') },
+  { path: '/import', label: 'Import', icon: '📥', match: (p) => p.startsWith('/import'), desktopOnly: true },
   { path: '/settings', label: 'Settings', icon: '⚙️', match: (p) => p.startsWith('/settings') },
 ];
 
@@ -66,6 +70,12 @@ export function App() {
     case 'practice':
       page = <PracticePage />;
       break;
+    case 'learn':
+      page = id ? <LessonPage key={id} id={id} /> : <LearnPage />;
+      break;
+    case 'tactics':
+      page = <TacticsPage key={route.query.toString()} query={route.query} />;
+      break;
     case 'import':
       page = <ImportPage />;
       break;
@@ -84,7 +94,7 @@ export function App() {
   }
 
   return (
-    <div className={`app ${root === 'game' || root === 'review' ? 'focus' : ''}`}>
+    <div className={`app ${root === 'game' || root === 'review' || root === 'tactics' || (root === 'learn' && id) ? 'focus' : ''}`}>
       <nav className="sidebar">
         <a className="brand" href="#/">
           <Logo /> Outpost
@@ -93,7 +103,7 @@ export function App() {
           <a
             key={n.path}
             href={`#${n.path === '/play' && live?.status === 'playing' ? '/game' : n.path}`}
-            className={`nav-link ${n.match(route.path) ? 'active' : ''}`}
+            className={`nav-link ${n.match(route.path) ? 'active' : ''} ${n.desktopOnly ? 'desk-only' : ''}`}
           >
             <span className="ico">{n.icon}</span>
             {n.label}
