@@ -1,0 +1,6 @@
+dist
+node_modules
+public/engine
+public/openings.json
+data
+src/styles/pieces.generated.css
