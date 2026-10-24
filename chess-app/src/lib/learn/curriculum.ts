@@ -200,7 +200,8 @@ export const LESSONS: Lesson[] = [
         fen: '2r3k1/pp3ppp/4b3/q2N4/8/8/PP3PPP/3Q1RK1 w - - 0 1',
         line: ['d5e7', 'g8f8', 'e7c8'],
         hint: 'A knight check that also hits the rook.',
-        success: 'Ne7+ escapes with a fork of the king and the rook on c8. Attacked pieces often have a forcing move: look for checks before retreating.',
+        success:
+          'Ne7+ escapes with a fork of the king and the rook on c8. Attacked pieces often have a forcing move: look for checks before retreating.',
       },
       {
         kind: 'puzzle',
