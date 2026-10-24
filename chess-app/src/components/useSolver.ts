@@ -25,7 +25,11 @@ export interface SolverInput {
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function useSolver(input: SolverInput | null) {
-  const [state, setState] = useState<SolverState>('intro');
+  const [rawState, setState] = useState<SolverState>('intro');
+  // The exercise the state belongs to: until the reset below has run for a new
+  // exercise, report 'intro' rather than the previous exercise's result.
+  const [owner, setOwner] = useState<SolverInput | null>(null);
+  const state: SolverState = owner === input ? rawState : 'intro';
   const [ply, setPly] = useState(0);
   const [tried, setTried] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -51,6 +55,7 @@ export function useSolver(input: SolverInput | null) {
     setHintLevel(0);
     setFailed(false);
     setAlt(false);
+    setOwner(input);
     if (!input) return;
     if (input.startMove) {
       setState('intro');
@@ -64,7 +69,7 @@ export function useSolver(input: SolverInput | null) {
 
   const played = useMemo(() => {
     if (!input || !base) return [];
-    const extra = state === 'wrong' && tried ? [tried] : [];
+    const extra = (state === 'wrong' || state === 'checking') && tried ? [tried] : [];
     return [...input.line.slice(0, ply), ...extra];
   }, [input, base, ply, state, tried]);
 

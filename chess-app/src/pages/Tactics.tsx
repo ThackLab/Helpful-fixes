@@ -48,7 +48,7 @@ export function TacticsPage({ query }: { query: URLSearchParams }) {
     }
   }, [solver.state, solver.failed, puzzle, delta, record]);
 
-  const title = lesson ? lesson.title : themes.length === 1 ? THEME_INFO[themes[0]].title : 'Mixed tactics';
+  const title = lesson ? lesson.title : (query.get('title') ?? (themes.length === 1 ? THEME_INFO[themes[0]].title : 'Mixed tactics'));
   const side = solver.solver === 'b' ? 'Black' : 'White';
   const done = solver.state === 'solved' || solver.state === 'revealed';
   const lastSan = puzzle ? sanLine(puzzle.fen, [puzzle.moves[0]])[0] : '';

@@ -5,6 +5,17 @@ import { loadPuzzles, type TacticPuzzle } from '../lib/learn/puzzles';
 import { listPuzzles, onDbChange } from '../lib/storage/db';
 import { navigate } from '../lib/router';
 import { useLearn } from '../state/learn';
+import type { PuzzleTheme } from '../lib/learn/tags';
+
+/** Puzzle sets offered as shortcuts on the Learn page. */
+const PUZZLE_SETS: { label: string; themes: PuzzleTheme[] }[] = [
+  { label: 'Forks', themes: ['fork'] },
+  { label: 'Pins & skewers', themes: ['pin', 'skewer'] },
+  { label: 'Discovered attacks', themes: ['discovered', 'doubleCheck'] },
+  { label: 'Combinations', themes: ['setup', 'sacrifice', 'removeDefender'] },
+  { label: 'Checkmates', themes: ['mateIn1', 'mateIn2', 'mateIn3', 'backRankMate', 'smotheredMate'] },
+  { label: 'Free pieces', themes: ['hanging'] },
+];
 
 export function useDueCount() {
   const [due, setDue] = useState(0);
@@ -68,6 +79,19 @@ export function LearnPage() {
           </span>
         </button>
       </div>
+
+      {puzzles.length > 0 && (
+        <div className="chip-row puzzle-sets">
+          {PUZZLE_SETS.map((set) => {
+            const n = puzzles.filter((p) => p.themes.some((t) => set.themes.includes(t))).length;
+            return n ? (
+              <a key={set.label} className="chip" href={`#/tactics?theme=${set.themes.join(',')}&title=${encodeURIComponent(set.label)}`}>
+                🧩 {set.label} <span className="faint">{n}</span>
+              </a>
+            ) : null;
+          })}
+        </div>
+      )}
 
       {focus && (
         <div className="focus-card">

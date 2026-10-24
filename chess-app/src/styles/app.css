@@ -1744,6 +1744,14 @@ cg-board square.hl-key {
   line-height: 1;
 }
 
+.puzzle-sets {
+  margin: -4px 0 16px;
+}
+
+.puzzle-sets .chip {
+  text-decoration: none;
+}
+
 .focus-card {
   background: #f1f6ea;
   color: #262421;

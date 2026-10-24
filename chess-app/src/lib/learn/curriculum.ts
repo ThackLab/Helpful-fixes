@@ -195,6 +195,15 @@ export const LESSONS: Lesson[] = [
       },
       {
         kind: 'puzzle',
+        title: 'Check and fork',
+        text: 'White to move. Your knight is attacked twice. Use it before you lose it.',
+        fen: '2r3k1/pp3ppp/4b3/q2N4/8/8/PP3PPP/3Q1RK1 w - - 0 1',
+        line: ['d5e7', 'g8f8', 'e7c8'],
+        hint: 'A knight check that also hits the rook.',
+        success: 'Ne7+ escapes with a fork of the king and the rook on c8. Attacked pieces often have a forcing move: look for checks before retreating.',
+      },
+      {
+        kind: 'puzzle',
         title: 'Family fork',
         text: 'White to move. The king, queen and a rook are all within one knight’s reach.',
         fen: 'r2q1r2/pb4kp/1p4p1/2p1p3/5N2/2P5/PP2QPPP/R4RK1 w - - 0 1',
