@@ -57,7 +57,14 @@ By default the APK is signed with a public debug key, which is fine for your own
 
 ## How the bots work
 
-- **Under 1500 Elo:** Stockfish scores up to 40 candidate moves with a shallow search. The bot then picks one with a temperature that grows as the rating drops, plus occasional "careless" moves weighted towards natural-looking captures, checks and pushes. Weak bots therefore hang pieces and miss tactics the way people do, but still convert won endgames.
+- **Under 1500 Elo:** the bots model how people at that level choose moves:
+  - **Sight:** each bot has a shallow search: 1 ply below 600, 2 plies up to 950, then increasingly often 3 plies until 1400. It always notices a piece left hanging, so it recaptures and saves attacked pieces, but it misses deeper tactics such as forks and pins.
+  - **Judgement:** each move is judged by blending that sight with a deep Stockfish evaluation. The deep share rises with the rating.
+  - **Choice:** the bot only considers moves that look about as good as its favourite (the window of moves it considers fine narrows as the rating rises), and picks among them with some noise. This produces natural inaccuracies instead of random moves.
+  - **Careless moves:** now and then (more than half the time at 250, about 17% at 850, 8% at 1450) the bot plays without checking the reply: it grabs material or makes a natural-looking move. That is where hung pieces and greedy captures come from. Above 600 a careless move never costs more than about a piece (above 1000, a rook's worth).
+  - **Finishing games:** when clearly winning, the bot often plays the engine's move (a third of the time at 250, most of the time at 1450), so won games get converted and mates are found.
+  - The settings are a table of anchor ratings in `src/lib/bots/brain.ts`, interpolated in between.
+  - **Calibration:** `BOT_CAL="250,550,850,1150,1450;10" npx vitest run src/test/botCalibrate.test.ts --silent=false` plays self-play games and reports, for balanced positions, the average centipawn loss and how often each level drops 2.5+ pawns or makes a 1–2.5 pawn mistake. Currently: 250 drops material on about a quarter of its moves, 550 on ~13%, 850 on ~5–6% (the old model: 16%), and 1450 on ~1.5%, about the same as Stockfish's own 1500 setting. `BOT_LADDER="850:1150,1450:1500;8" npx vitest run src/test/botLadder.test.ts --silent=false` plays head-to-head matches, and `BOT_DUEL="1150:1450;4" npx vitest run src/test/botDuel.test.ts --silent=false` lists each side's big mistakes.
 - **1500–3190:** Stockfish's own calibrated `UCI_LimitStrength` / `UCI_Elo`.
 - **3200:** full-strength Stockfish.
 - Bots open from an opening book of 3,300+ named lines, so their openings vary from game to game.

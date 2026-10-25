@@ -1,23 +1,34 @@
 // Bot move selection. Below ~1500 Elo Stockfish's own strength limiter does
-// not go low enough and plays unnaturally, so we "humanise" it: score many
-// candidate moves with a shallow search, then pick with a temperature that
-// grows as the rating drops, plus occasional natural-looking blunders.
+// not go low enough and plays unnaturally, so we model how weaker people
+// actually choose moves. Each bot has a limited "sight": a shallow search that
+// always notices pieces left hanging and recaptures, but misses deeper
+// tactics. Its judgement blends that sight with a deep evaluation (more of
+// the deep one as the rating rises), plus a little noise. Now and then it
+// plays a careless move without checking the reply at all, which is where
+// hung pieces and greedy captures come from.
 // From 1500 up we use Stockfish's calibrated UCI_Elo limiter.
 import { Chess, type Move } from 'chess.js';
 import type { Engine } from '../engine/engine';
 import { scoreToCp, type Score } from '../engine/uci';
 import type { OpeningBook } from '../chess/openings';
-import { moveToUci } from '../chess/utils';
+import { PIECE_VALUE, moveToUci } from '../chess/utils';
 import type { BotProfile } from './bots';
 
 export interface StrengthParams {
   mode: 'human' | 'limited' | 'full';
+  /** Depth of the deep search (what is really going on). */
   depth: number;
   multipv: number;
-  /** Softmax temperature in centipawns (human mode). */
-  temperature: number;
-  /** Chance of a "careless" move ignoring the evaluation (human mode). */
-  blunderRate: number;
+  /** Depth of the bot's own sight (what it notices); a fraction means the deeper sight is used that share of the time. */
+  sightDepth: number;
+  /** Weight of the deep evaluation against its own sight (0..1). */
+  insight: number;
+  /** Moves the bot judges within this many centipawns of its favourite all look playable to it. */
+  window: number;
+  /** Judgement noise in centipawns when choosing among them. */
+  noise: number;
+  /** Chance per move of a careless move that ignores the opponent's replies. */
+  carelessRate: number;
   movetime: number;
   /** How many plies the bot may follow its opening book. */
   bookPlies: number;
@@ -26,20 +37,47 @@ export interface StrengthParams {
 export const STOCKFISH_MIN_ELO = 1500;
 export const STOCKFISH_MAX_ELO = 3190;
 
+/**
+ * Human-model settings at anchor ratings, interpolated in between:
+ * [elo, careless rate, window, noise, insight]. Tuned with
+ * src/test/botCalibrate.test.ts and src/test/botLadder.test.ts.
+ */
+const ANCHORS: [number, number, number, number, number][] = [
+  [100, 0.65, 330, 150, 0],
+  [400, 0.45, 270, 125, 0.05],
+  [700, 0.25, 210, 100, 0.18],
+  [850, 0.17, 186, 85, 0.25],
+  [1150, 0.12, 165, 75, 0.34],
+  [1450, 0.08, 150, 68, 0.45],
+];
+
+function anchored(elo: number, field: 1 | 2 | 3 | 4): number {
+  const e = Math.max(ANCHORS[0][0], Math.min(ANCHORS[ANCHORS.length - 1][0], elo));
+  let i = 0;
+  while (i < ANCHORS.length - 2 && e > ANCHORS[i + 1][0]) i++;
+  const [a, b] = [ANCHORS[i], ANCHORS[i + 1]];
+  const t = (e - a[0]) / (b[0] - a[0]);
+  return a[field] + (b[field] - a[field]) * t;
+}
+
 export function strengthFor(elo: number): StrengthParams {
   const bookPlies = Math.round(Math.max(2, Math.min(24, (elo - 100) / 110)));
-  if (elo >= 3150) return { mode: 'full', depth: 0, multipv: 1, temperature: 0, blunderRate: 0, movetime: 1500, bookPlies: 16 };
+  const none = { sightDepth: 0, insight: 1, window: 0, noise: 0, carelessRate: 0 };
+  if (elo >= 3150) return { mode: 'full', depth: 0, multipv: 1, ...none, movetime: 1500, bookPlies: 16 };
   if (elo >= STOCKFISH_MIN_ELO) {
     const t = (elo - STOCKFISH_MIN_ELO) / (STOCKFISH_MAX_ELO - STOCKFISH_MIN_ELO);
-    return { mode: 'limited', depth: 0, multipv: 1, temperature: 0, blunderRate: 0, movetime: Math.round(300 + 900 * t), bookPlies };
+    return { mode: 'limited', depth: 0, multipv: 1, ...none, movetime: Math.round(300 + 900 * t), bookPlies };
   }
   const e = Math.max(100, elo);
   return {
     mode: 'human',
-    depth: e < 700 ? 6 : e < 1100 ? 8 : 10,
-    multipv: e < 700 ? 40 : e < 1100 ? 30 : 20,
-    temperature: 400 * Math.exp(-(e - 250) / 580),
-    blunderRate: Math.min(0.4, 0.3 * Math.exp(-(e - 250) / 520)),
+    depth: e < 700 ? 8 : 10,
+    multipv: e < 700 ? 12 : 16,
+    sightDepth: e < 600 ? 1 : 2 + Math.max(0, Math.min(1, (e - 950) / 450)),
+    insight: anchored(e, 4),
+    window: anchored(e, 2),
+    noise: anchored(e, 3),
+    carelessRate: anchored(e, 1),
     movetime: 0,
     bookPlies,
   };
@@ -60,6 +98,12 @@ export interface BotMove {
   source: 'book' | 'engine' | 'careless';
   /** Engine evaluation from White's perspective (when known). */
   score?: Score;
+}
+
+/** Standard normal sample (Box-Muller). */
+function gaussian(rng: () => number): number {
+  const u = Math.max(1e-9, rng());
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng());
 }
 
 function pickWeighted<T>(items: { item: T; w: number }[], rng: () => number): T {
@@ -141,47 +185,89 @@ export async function chooseBotMove(engine: Engine, ctx: BotMoveContext): Promis
     .board()
     .flat()
     .filter((p) => p && p.type !== 'p' && p.type !== 'k').length;
-  const res = await engine.analyse({
+  const sign = chess.turn() === 'w' ? 1 : -1;
+  const cpOf = (sc: Score) => sign * scoreToCp(sc);
+  const deepRes = await engine.analyse({
     ...base,
     limits: { depth: params.depth + (pieces <= 4 ? 4 : pieces <= 8 ? 2 : 0) },
     multipv: Math.min(params.multipv, legal.length),
     options: { UCI_LimitStrength: false },
   });
-  const white = chess.turn() === 'w';
-  const scored = res.lines.filter((l) => l.pv.length).map((l) => ({ uci: l.pv[0], cp: (white ? 1 : -1) * scoreToCp(l.score), score: l.score }));
-  if (!scored.length) {
-    const uci = res.bestmove ?? moveToUci(legal[0]);
+  const deepLines = deepRes.lines.filter((l) => l.pv.length);
+  if (!deepLines.length) {
+    const uci = deepRes.bestmove ?? moveToUci(legal[0]);
     return { uci, san: sanOf(uci), source: 'engine' };
   }
+  const deep = new Map(deepLines.map((l) => [l.pv[0], cpOf(l.score)]));
+  const scoreOf = (uci: string) => deepLines.find((l) => l.pv[0] === uci)?.score;
+  const bestDeep = cpOf(deepLines[0].score);
+  const floor = Math.min(...deep.values()) - 50;
+  const winning = bestDeep > 400;
+  const elo = ctx.bot.elo;
 
-  const best = scored[0].cp;
-  // Clearly winning: weak players still blunder, but they do try to finish the game.
-  const winning = best > 500;
-  if (rng() < params.blunderRate * (winning ? 0.4 : 1)) {
-    // A careless move: something natural-looking, not necessarily the worst.
-    // Stronger bots' careless moves are "only" mistakes, not random hangs.
-    const maxLoss = ctx.bot.elo < 600 ? Infinity : ctx.bot.elo < 1000 ? 700 : 400;
-    const bestCp = best;
-    const evalOf = new Map(scored.map((s) => [s.uci, s.cp]));
-    const pool = legal.map((m) => ({ m, loss: bestCp - (evalOf.get(moveToUci(m)) ?? bestCp - 300) })).filter((x) => x.loss <= maxLoss);
+  // When clearly winning, even weak players try to finish the game: mostly
+  // the engine's move (so mates are found and games end), otherwise as usual.
+  if (winning && rng() < 0.25 + 0.65 * Math.min(1, elo / 1500)) {
+    const uci = deepLines[0].pv[0];
+    return { uci, san: sanOf(uci), source: 'engine', score: deepLines[0].score };
+  }
+
+  if (rng() < params.carelessRate * (winning ? 0.3 : 1)) {
+    // A careless move: it grabs what is there or looks natural, without
+    // checking the reply. Stronger bots' careless moves cost less.
+    // Above 600 only moves with a known cost qualify, so the cap really holds.
+    const cap = elo < 600 ? Infinity : elo < 1000 ? 600 : 350;
+    const pool = legal.filter((m) => {
+      const d = deep.get(moveToUci(m));
+      return cap === Infinity || (d !== undefined && bestDeep - d <= cap);
+    });
     if (pool.length) {
-      const m = pickWeighted(
-        pool.map((x) => ({ item: x.m, w: naturalness(x.m, chess) })),
-        rng,
-      );
-      const uci = moveToUci(m);
-      return { uci, san: m.san, source: 'careless', score: scored.find((s) => s.uci === uci)?.score };
+      let pick = pool[0];
+      let top = -Infinity;
+      for (const m of pool) {
+        const v =
+          (m.captured ? 100 * PIECE_VALUE[m.captured] : 0) + (m.promotion ? 800 : 0) + 40 * Math.log(naturalness(m, chess)) + 60 * gaussian(rng);
+        if (v > top) {
+          top = v;
+          pick = m;
+        }
+      }
+      const uci = moveToUci(pick);
+      return { uci, san: pick.san, source: 'careless', score: scoreOf(uci) };
     }
   }
 
-  const LOSS_CAP = 1200; // even beginners usually spot that a move loses the queen *sometimes*
-  // When far ahead, play purposefully so won games get converted instead of shuffled.
-  const temperature = winning ? Math.min(params.temperature, 20 + params.temperature * 0.1) : params.temperature;
-  const choice = pickWeighted(
-    scored.map((s) => ({ item: s, w: Math.exp(-Math.min(LOSS_CAP, best - s.cp) / temperature) })),
-    rng,
-  );
-  return { uci: choice.uci, san: sanOf(choice.uci), source: 'engine', score: choice.score };
+  // What the bot actually sees: a shallow search over every move.
+  const sightRes = await engine.analyse({
+    ...base,
+    limits: { depth: Math.floor(params.sightDepth) + (rng() < params.sightDepth % 1 ? 1 : 0) },
+    multipv: legal.length,
+    options: { UCI_LimitStrength: false },
+  });
+  const seen = new Map(sightRes.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], cpOf(l.score)]));
+  const insight = winning ? Math.max(params.insight, 0.8) : params.insight;
+  const window = winning ? params.window / 2 : params.window;
+  const clamp = (cp: number) => Math.max(-1500, Math.min(1500, cp));
+  const judged = legal.map((m) => {
+    const uci = moveToUci(m);
+    const s = seen.get(uci) ?? floor;
+    const d = deep.get(uci) ?? Math.min(floor, s);
+    return { uci, v: insight * clamp(d) + (1 - insight) * clamp(s) };
+  });
+  // Moves that look clearly worse are never chosen on purpose; among the ones
+  // that look fine, the choice is a matter of taste (noise).
+  const favourite = Math.max(...judged.map((j) => j.v));
+  let choice = judged[0].uci;
+  let top = -Infinity;
+  for (const j of judged) {
+    if (j.v < favourite - window) continue;
+    const v = j.v + params.noise * gaussian(rng);
+    if (v > top) {
+      top = v;
+      choice = j.uci;
+    }
+  }
+  return { uci: choice, san: sanOf(choice), source: 'engine', score: scoreOf(choice) };
 }
 
 /** Whether the bot accepts a draw offer, given the eval from the bot's point of view (cp). */
