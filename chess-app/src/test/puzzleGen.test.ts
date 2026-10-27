@@ -21,7 +21,10 @@ import { puzzleRating, type TacticPuzzle } from '../lib/learn/puzzles';
 import { expectedFor } from '../lib/review/winprob';
 import { nodeEngine } from './nodeEngine';
 
-const OUT = fileURLToPath(new URL('../../data/puzzles-mined.json', import.meta.url));
+// PUZZLE_DIR lets a long run write somewhere other than data/ (copy the files back afterwards).
+const OUT = process.env.PUZZLE_DIR
+  ? `${process.env.PUZZLE_DIR}/puzzles-mined.json`
+  : fileURLToPath(new URL('../../data/puzzles-mined.json', import.meta.url));
 const PER_GAME = 8;
 /** Share of plain captures that still get the deep check (they are already plentiful). */
 const SKIP_PLAIN = +(process.env.PUZZLE_PLAIN ?? 0.3);

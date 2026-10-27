@@ -70,42 +70,51 @@ const show = (fen: string, l: PvLine) =>
   `${l.score.type === 'mate' ? `#${l.score.value}` : (l.score.value / 100).toFixed(2)} ${sanLine(fen, l.pv, 6).join(' ')}`;
 
 it.skipIf(!process.env.CURRICULUM)('curriculum solutions are engine-verified', { timeout: 3_600_000 }, async () => {
-  const engine = nodeEngine({ Hash: 64 });
   const problems: string[] = [];
-  for (const lesson of LESSONS)
-    for (const step of lesson.steps) {
-      if (step.kind !== 'puzzle') continue;
-      const where = `${lesson.id} / ${step.title}`;
-      const chess = new Chess(step.fen);
-      const solver = chess.turn();
-      for (let i = 0; i < step.line.length; i++) {
-        const fen = chess.fen();
-        const uci = step.line[i];
-        const r = await engine.analyse({ fen, limits: { depth: 20 }, multipv: 3 });
-        const best = r.lines[0];
-        if (i % 2 === 0) {
-          const playedLine = r.lines.find((l) => l.pv[0] === uci);
-          const last = i === step.line.length - 1;
-          const after = new Chess(fen);
-          playUci(after, uci);
-          const mates = after.isCheckmate();
-          if (!(last && step.anyMate && mates)) {
-            if (!playedLine) problems.push(`${where}: move ${i + 1} ${uci} not in top lines: ${r.lines.map((l) => show(fen, l)).join(' | ')}`);
-            else if (cp(best, solver) - cp(playedLine, solver) > 30) problems.push(`${where}: move ${i + 1} ${uci} is worse than ${show(fen, best)}`);
-            const alt = r.lines.find((l) => l.pv[0] !== uci && !(i === 0 && step.alts?.includes(l.pv[0])));
-            // Later moves only need to be good: the lesson player accepts equally good follow-ups.
-            if (i === 0 && playedLine && alt && cp(playedLine, solver) - cp(alt, solver) < 100)
-              problems.push(`${where}: move ${i + 1} ${uci} not unique; also ${show(fen, alt)}`);
-          }
-        } else if (best && best.pv[0] !== uci) {
-          const reply = r.lines.find((l) => l.pv[0] === uci);
-          if (!reply || cp(reply, solver) - cp(best, solver) > 60)
-            problems.push(`${where}: reply ${uci} is not a good defence; best is ${show(fen, best)}`);
+  const steps = LESSONS.flatMap((lesson) => lesson.steps.map((step) => ({ lesson, step })));
+  let next = 0;
+  const check = async (engine: ReturnType<typeof nodeEngine>, lesson: (typeof LESSONS)[number], step: LessonStep) => {
+    if (step.kind !== 'puzzle') return;
+    const where = `${lesson.id} / ${step.title}`;
+    const chess = new Chess(step.fen);
+    const solver = chess.turn();
+    for (let i = 0; i < step.line.length; i++) {
+      const fen = chess.fen();
+      const uci = step.line[i];
+      const r = await engine.analyse({ fen, limits: { depth: 20 }, multipv: 3 });
+      const best = r.lines[0];
+      if (i % 2 === 0) {
+        const playedLine = r.lines.find((l) => l.pv[0] === uci);
+        const last = i === step.line.length - 1;
+        const after = new Chess(fen);
+        playUci(after, uci);
+        const mates = after.isCheckmate();
+        if (!(last && step.anyMate && mates)) {
+          if (!playedLine) problems.push(`${where}: move ${i + 1} ${uci} not in top lines: ${r.lines.map((l) => show(fen, l)).join(' | ')}`);
+          else if (cp(best, solver) - cp(playedLine, solver) > 30) problems.push(`${where}: move ${i + 1} ${uci} is worse than ${show(fen, best)}`);
+          const alt = r.lines.find((l) => l.pv[0] !== uci && !(i === 0 && step.alts?.includes(l.pv[0])));
+          // Later moves only need to be good: the lesson player accepts equally good follow-ups.
+          if (i === 0 && playedLine && alt && cp(playedLine, solver) - cp(alt, solver) < 100)
+            problems.push(`${where}: move ${i + 1} ${uci} not unique; also ${show(fen, alt)}`);
         }
-        playUci(chess, uci);
+      } else if (best && best.pv[0] !== uci) {
+        const reply = r.lines.find((l) => l.pv[0] === uci);
+        if (!reply || cp(reply, solver) - cp(best, solver) > 60)
+          problems.push(`${where}: reply ${uci} is not a good defence; best is ${show(fen, best)}`);
       }
+      playUci(chess, uci);
     }
-  engine.terminate();
+  };
+  await Promise.all(
+    Array.from({ length: 3 }, async () => {
+      const engine = nodeEngine({ Hash: 64 });
+      while (next < steps.length) {
+        const { lesson, step } = steps[next++];
+        await check(engine, lesson, step);
+      }
+      engine.terminate();
+    }),
+  );
   if (problems.length) process.stdout.write('\nPROBLEMS:\n' + problems.join('\n') + '\n');
   expect(problems).toEqual([]);
 });

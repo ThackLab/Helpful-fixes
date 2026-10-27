@@ -16,8 +16,10 @@ import type { Engine } from '../lib/engine/engine';
 import type { TacticPuzzle } from '../lib/learn/puzzles';
 import { nodeEngine } from './nodeEngine';
 
-const MINED = fileURLToPath(new URL('../../data/puzzles-mined.json', import.meta.url));
-export const RATINGS = fileURLToPath(new URL('../../data/puzzle-ratings.json', import.meta.url));
+// PUZZLE_DIR lets a long run write somewhere other than data/ (copy the files back afterwards).
+const dir = process.env.PUZZLE_DIR ?? fileURLToPath(new URL('../../data', import.meta.url));
+const MINED = `${dir}/puzzles-mined.json`;
+export const RATINGS = `${dir}/puzzle-ratings.json`;
 const LEVELS = [300, 600, 900, 1200, 1450, 1900];
 const TRIES = 2;
 
