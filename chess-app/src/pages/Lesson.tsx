@@ -2,15 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
+import { ChevronLeft, ChevronRight, Lightbulb, RotateCcw, Trophy, X } from 'lucide-react';
 import { Board, type PromotionPiece } from '../components/Board';
 import { useSolver } from '../components/useSolver';
-import { LESSONS, findLesson, type DrillStep, type Lesson, type LessonStep, type PuzzleStep, type QuizStep } from '../lib/learn/curriculum';
-import { loadPuzzles } from '../lib/learn/puzzles';
+import { findLesson, type DrillStep, type LessonStep, type PuzzleStep, type QuizStep } from '../lib/learn/curriculum';
+import { explainPuzzle, type TacticPuzzle } from '../lib/learn/puzzles';
+import { levelOfLesson, starsFor } from '../lib/learn/levels';
 import { getAnalysisEngine } from '../lib/engine/manager';
 import { legalDests, moveToUci, playUci, sanLine } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
 import { playSound, soundForSan } from '../lib/sound';
-import { useLearn } from '../state/learn';
+import { Stars } from '../components/ui';
+import { pickSet, useLearn } from '../state/learn';
+import { usePuzzleBank } from './Puzzles';
 
 const BRUSH: Record<string, string> = { r: 'red', b: 'blue', y: 'yellow' };
 
@@ -37,32 +41,49 @@ function useRevealInPanel<T extends HTMLElement>(dep: unknown) {
   return ref;
 }
 
-const STEP_LABEL: Record<LessonStep['kind'], string> = { info: 'Idea', walk: 'Example', puzzle: 'Your move', drill: 'Drill', quiz: 'Quiz' };
-
-/** Number of generated practice puzzles for a lesson's themes. */
-export function usePracticeCount(lesson: Lesson | undefined) {
-  const [n, setN] = useState<number | null>(null);
-  useEffect(() => {
-    if (!lesson?.themes.length) return;
-    void loadPuzzles().then((ps) => setN(ps.filter((p) => p.themes.some((t) => lesson.themes.includes(t))).length));
-  }, [lesson]);
-  return n;
-}
+const STEP_LABEL: Record<LessonStep['kind'], string> = { info: 'Idea', walk: 'Example', puzzle: 'Your move', drill: 'Drill', quiz: 'Question' };
+const PRACTICE_SIZE = 5;
 
 export function LessonPage({ id }: { id: string }) {
   const lesson = findLesson(id);
+  const level = levelOfLesson(id);
   const reach = useLearn((s) => s.reach);
-  const complete = useLearn((s) => s.complete);
+  const finishLesson = useLearn((s) => s.finishLesson);
+  const record = useLearn((s) => s.record);
+  const prevBest = useLearn((s) => s.lessons[id]?.best);
+  const bank = usePuzzleBank();
   const [idx, setIdx] = useState(0);
   const [walkPly, setWalkPly] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
-  const practiceCount = usePracticeCount(lesson);
+  /** Score (0..1) of each graded step, by step index; practice puzzles follow the steps. */
+  const [scores, setScores] = useState<Record<number, number>>({});
+  const [result, setResult] = useState<{ score: number; stars: number; improved: boolean } | null>(null);
+  const [practice, setPractice] = useState<TacticPuzzle[] | null>(null);
 
-  const step: LessonStep | undefined = lesson?.steps[idx];
+  // The practice set: puzzles from the bank on this lesson's themes, at this level.
+  useEffect(() => {
+    if (!bank || !lesson || practice) return;
+    setPractice(
+      lesson.themes.length
+        ? pickSet(bank, { themes: lesson.themes, band: level?.band ?? [400, 1600], n: PRACTICE_SIZE, recent: useLearn.getState().recent })
+        : [],
+    );
+  }, [bank, lesson, level, practice]);
+
+  const steps = lesson?.steps ?? [];
+  const total = steps.length + (practice?.length ?? 0);
+  const step: LessonStep | undefined = steps[idx];
+  const practicePuzzle = idx >= steps.length ? practice?.[idx - steps.length] : undefined;
+  const finished = !!lesson && practice !== null && idx >= total;
   const puzzle = step?.kind === 'puzzle' ? step : null;
   const solverInput = useMemo(
-    () => (puzzle ? { fen: puzzle.fen, line: puzzle.line, alts: puzzle.alts, anyMate: puzzle.anyMate, hint: puzzle.hint } : null),
-    [puzzle],
+    () =>
+      puzzle
+        ? { fen: puzzle.fen, line: puzzle.line, alts: puzzle.alts, anyMate: puzzle.anyMate, hint: puzzle.hint }
+        : practicePuzzle
+          ? { fen: practicePuzzle.fen, startMove: practicePuzzle.moves[0], line: practicePuzzle.moves.slice(1) }
+          : null,
+    [puzzle, practicePuzzle],
   );
   const solver = useSolver(solverInput);
   const drillStep = step?.kind === 'drill' ? step : null;
@@ -72,10 +93,40 @@ export function LessonPage({ id }: { id: string }) {
   useEffect(() => {
     setWalkPly(0);
     setPicked(null);
-    if (!lesson) return;
-    if (idx >= lesson.steps.length) complete(lesson.id);
-    else reach(lesson.id, idx);
-  }, [idx, lesson, reach, complete]);
+    if (lesson && idx < steps.length) reach(lesson.id, idx);
+  }, [idx, lesson, steps.length, reach]);
+
+  const grade = (i: number, v: number) => setScores((s) => (i in s ? s : { ...s, [i]: v }));
+
+  // Grade solved puzzles (lesson puzzles and practice) the first time they finish.
+  useEffect(() => {
+    if (!solverInput || (!puzzle && !practicePuzzle)) return;
+    if (solver.state !== 'solved' && solver.state !== 'revealed' && solver.state !== 'wrong') return;
+    if (practicePuzzle) {
+      if (idx in scores) return;
+      const ok = solver.state === 'solved' && !solver.failed && solver.hintLevel === 0;
+      grade(idx, ok ? 1 : 0);
+      record(practicePuzzle, ok, true);
+      return;
+    }
+    if (solver.state === 'wrong') return;
+    grade(idx, solver.state === 'revealed' ? 0 : solver.failed ? 0.4 : solver.hintLevel > 0 ? 0.7 : 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solver.state]);
+  useEffect(() => {
+    if (drillStep && drill.status === 'won') grade(idx, drill.losses ? 0.6 : 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drill.status]);
+
+  // The lesson is graded once, when the last step is done.
+  useEffect(() => {
+    if (!finished || !lesson || result) return;
+    const graded = Object.values(scores);
+    const score = graded.length ? (graded.reduce((a, b) => a + b, 0) / graded.length) * 100 : 100;
+    const r = finishLesson(lesson.id, score);
+    setResult({ score: Math.round(score), stars: starsFor(score), improved: r.improved });
+    playSound('correct');
+  }, [finished, lesson, result, scores, finishLesson]);
 
   if (!lesson)
     return (
@@ -87,18 +138,20 @@ export function LessonPage({ id }: { id: string }) {
       </div>
     );
 
-  const total = lesson.steps.length;
-  const finished = idx >= total;
-  const nextLesson = LESSONS[LESSONS.indexOf(lesson) + 1];
+  const levelLessons = level?.lessons ?? [];
+  const nextId = levelLessons[levelLessons.indexOf(lesson.id) + 1];
+  const nextLesson = nextId ? findLesson(nextId) : undefined;
   const walk = step?.kind === 'walk' ? step : null;
   const quiz = step?.kind === 'quiz' ? step : null;
   const pickedOption = quiz && picked !== null ? quiz.options[picked] : null;
+  const solverDone = solver.state === 'solved' || solver.state === 'revealed';
   const canAdvance =
-    !step ||
-    step.kind === 'info' ||
+    (!step && !practicePuzzle) ||
+    step?.kind === 'info' ||
     (walk && walkPly >= walk.moves.length) ||
-    (puzzle && (solver.state === 'solved' || solver.state === 'revealed')) ||
-    (step.kind === 'drill' && drillDone) ||
+    (puzzle && solverDone) ||
+    (practicePuzzle && (solverDone || idx in scores)) ||
+    (step?.kind === 'drill' && drillDone) ||
     !!pickedOption?.correct;
 
   const next = () => {
@@ -120,11 +173,22 @@ export function LessonPage({ id }: { id: string }) {
     if (walk && walkPly > 0) setWalkPly(walkPly - 1);
     else setIdx(Math.max(0, idx - 1));
   };
+  const restart = () => {
+    setScores({});
+    setResult(null);
+    setPractice(null);
+    setIdx(0);
+  };
+  const onPick = (i: number) => {
+    if (!quiz) return;
+    setPicked(i);
+    playSound(quiz.options[i].correct ? 'correct' : 'wrong');
+    grade(idx, quiz.options[i].correct ? 1 : 0.3);
+  };
 
   // ---- board for the current step
-  let board: { fen: string; lastMove?: [string, string]; shapes?: DrawShape[]; highlights?: Map<string, string>; check?: boolean } = {
-    fen: lesson.steps[Math.min(idx, total - 1)].fen,
-  };
+  const lastFen = steps[Math.min(idx, steps.length - 1)]?.fen;
+  let board: { fen: string; lastMove?: [string, string]; shapes?: DrawShape[]; highlights?: Map<string, string>; check?: boolean } = { fen: lastFen };
   if (step?.kind === 'info') board = { fen: step.fen, shapes: arrowShapes(step.arrows), highlights: markMap(step.marks) };
   if (walk) {
     const c = new Chess(walk.fen);
@@ -132,26 +196,33 @@ export function LessonPage({ id }: { id: string }) {
     const m = walk.moves[walkPly - 1];
     board = { fen: c.fen(), lastMove: lastOf(m?.uci), shapes: arrowShapes(m?.arrows), check: c.inCheck() };
   }
-  if (puzzle && solver.view)
+  if ((puzzle || practicePuzzle) && solver.view)
     board = { fen: solver.view.fen, lastMove: solver.view.lastMove, check: solver.view.check, highlights: solver.highlights };
   if (quiz) {
     const c = new Chess(quiz.fen);
     if (pickedOption?.uci) playUci(c, pickedOption.uci);
     board = { fen: c.fen(), lastMove: lastOf(pickedOption?.uci), check: c.inCheck(), shapes: arrowShapes(pickedOption?.arrows) };
   }
+  const interactive = !!(puzzle || practicePuzzle);
+  const orientation = practicePuzzle && solver.solver === 'b' ? 'black' : puzzle && puzzle.fen.split(' ')[1] === 'b' ? 'black' : 'white';
 
   return (
     <div className="game-layout focus-screen lesson-screen">
       <div className="board-column">
         <div className="player-bar lesson-top">
+          <button className="icon-btn" onClick={() => navigate('/learn')} aria-label="Close">
+            <X size={22} />
+          </button>
           <b>
             {lesson.icon} {lesson.title}
           </b>
           <span className="spacer" />
-          <span className="faint">{finished ? 'Done' : `${idx + 1} / ${total}`}</span>
+          <span className="faint num">{finished ? '' : `${Math.min(idx + 1, total)} / ${total}`}</span>
         </div>
         <div className="lesson-progress">
-          <span style={{ width: `${(Math.min(idx + (canAdvance ? 1 : 0), total) / total) * 100}%` }} />
+          {Array.from({ length: total }, (_, i) => (
+            <span key={i} className={i in scores ? (scores[i] >= 1 ? 'done' : 'miss') : i < idx ? 'done' : i === idx ? 'cur' : ''} />
+          ))}
         </div>
         <div className="board-row">
           {drillStep ? (
@@ -164,39 +235,44 @@ export function LessonPage({ id }: { id: string }) {
               dests={drill.dests}
               onMove={drill.onMove}
             />
-          ) : (
+          ) : board.fen ? (
             <Board
               fen={board.fen}
-              orientation="white"
+              orientation={orientation}
               lastMove={board.lastMove}
               check={board.check}
               shapes={board.shapes}
               highlights={board.highlights}
-              movableColor={puzzle && solver.state === 'solve' && solver.solver ? (solver.solver === 'w' ? 'white' : 'black') : undefined}
-              dests={puzzle ? solver.dests : undefined}
-              onMove={puzzle ? solver.onMove : undefined}
-              viewOnly={!puzzle}
+              movableColor={interactive && solver.state === 'solve' && solver.solver ? (solver.solver === 'w' ? 'white' : 'black') : undefined}
+              dests={interactive ? solver.dests : undefined}
+              onMove={interactive ? solver.onMove : undefined}
+              viewOnly={!interactive}
             />
+          ) : (
+            <div className="board-placeholder" />
           )}
         </div>
       </div>
 
       <div className="side-panel">
         <div className="panel-body">
-          {finished ? (
-            <div className="coach-card">
-              <div className="coach-top">
-                <span className="coach-step">Lesson complete</span>
-              </div>
-              <h3 className="coach-title">✅ {lesson.title}</h3>
+          {finished && result ? (
+            <div className="coach-card finish-card">
+              <span className="coach-step">Lesson complete</span>
+              <Stars n={result.stars} big />
+              <h3>{result.stars === 3 ? 'Perfect!' : result.stars === 2 ? 'Well done' : 'Lesson done'}</h3>
+              <p className="score-line">
+                Score {result.score}%
+                {prevBest !== undefined && prevBest > result.score
+                  ? ` · best ${prevBest}%`
+                  : result.improved && prevBest !== undefined
+                    ? ' · new best'
+                    : ''}
+                {result.stars < 3 ? ` · ${result.stars === 1 ? '70' : '90'}% for the next star` : ''}
+              </p>
               <div className="lesson-box">
-                <div className="lesson-head">
-                  <span className="lesson-icon">{lesson.icon}</span>
-                  <div>
-                    <div className="coach-label">Remember</div>
-                    <b>{lesson.rule}</b>
-                  </div>
-                </div>
+                <div className="coach-label">Remember</div>
+                <p style={{ fontWeight: 650 }}>{lesson.rule}</p>
               </div>
               <div className="coach-section">
                 <div className="coach-label">How to spot it in your games</div>
@@ -205,18 +281,6 @@ export function LessonPage({ id }: { id: string }) {
                     <li key={s}>{s}</li>
                   ))}
                 </ul>
-              </div>
-              <div className="row">
-                {lesson.themes.length > 0 && (practiceCount ?? 0) > 0 && (
-                  <button className="btn primary" onClick={() => navigate(`/tactics?lesson=${lesson.id}`)}>
-                    🧩 Practise ({practiceCount} puzzle{practiceCount === 1 ? '' : 's'})
-                  </button>
-                )}
-                {nextLesson && (
-                  <button className="btn" onClick={() => navigate(`/learn/${nextLesson.id}`)}>
-                    Next: {nextLesson.title} ▶
-                  </button>
-                )}
               </div>
             </div>
           ) : step?.kind === 'info' ? (
@@ -233,48 +297,79 @@ export function LessonPage({ id }: { id: string }) {
           ) : puzzle ? (
             <PuzzleCard step={puzzle} solver={solver} />
           ) : quiz ? (
-            <QuizCard step={quiz} picked={picked} onPick={setPicked} />
+            <QuizCard step={quiz} picked={picked} onPick={onPick} />
           ) : drillStep ? (
             <StepCard step={drillStep} label={STEP_LABEL.drill} text={drillDone ? drillStep.success : drillStep.text}>
               <p className={`coach-text ${drill.status === 'lost' ? 'wrong-text' : 'faint'}`}>
-                {drill.status === 'won' ? '✅ Done!' : drill.status === 'lost' ? drill.note : `Move ${drill.moveNo} of ${drillStep.maxMoves}`}
+                {drill.status === 'won' ? 'Done!' : drill.status === 'lost' ? drill.note : `Move ${drill.moveNo} of ${drillStep.maxMoves}`}
               </p>
               {(drill.status === 'lost' || drill.status === 'won' || drill.moveNo > 1) && (
                 <div className="row">
                   <button className="btn small" onClick={drill.reset}>
-                    ↺ Start again
+                    <RotateCcw size={14} /> Start again
                   </button>
                 </div>
               )}
             </StepCard>
-          ) : null}
+          ) : practicePuzzle ? (
+            <PracticeCard puzzle={practicePuzzle} solver={solver} n={idx - steps.length + 1} of={practice?.length ?? 0} graded={scores[idx]} />
+          ) : (
+            <p className="faint">Loading…</p>
+          )}
         </div>
 
         <div className="play-controls">
-          <button className="ctl" onClick={() => navigate('/learn')}>
-            <span className="ctl-ico">✕</span>
-            <span className="ctl-label">Close</span>
-          </button>
-          <button className="ctl" onClick={back} disabled={idx === 0 && walkPly === 0}>
-            <span className="ctl-ico">◀</span>
-            <span className="ctl-label">Back</span>
-          </button>
-          {puzzle && (
-            <button className="ctl" onClick={solver.hint} disabled={solver.state !== 'solve' || solver.hintLevel >= 2}>
-              <span className="ctl-ico">💡</span>
-              <span className="ctl-label">Hint</span>
-            </button>
-          )}
           {finished ? (
-            <button className="ctl wide" onClick={() => navigate(nextLesson ? `/learn/${nextLesson.id}` : '/learn')}>
-              <span className="ctl-ico">▶</span>
-              <span className="ctl-label">{nextLesson ? 'Next lesson' : 'All lessons'}</span>
-            </button>
+            <>
+              <button className="ctl" onClick={restart}>
+                <span className="ctl-ico">
+                  <RotateCcw size={20} />
+                </span>
+                <span className="ctl-label">Retry</span>
+              </button>
+              <button
+                className="ctl wide go"
+                onClick={() => navigate(nextLesson ? `/learn/${nextLesson.id}` : level ? `/exam/${level.id}` : '/learn')}
+              >
+                <span className="ctl-ico">{nextLesson ? <ChevronRight size={22} /> : <Trophy size={20} />}</span>
+                <span className="ctl-label">{nextLesson ? `Next: ${nextLesson.title}` : level ? `Level ${level.n} exam` : 'Back to the course'}</span>
+              </button>
+            </>
           ) : (
-            <button className="ctl wide" onClick={next} disabled={!canAdvance && !(walk && walkPly < walk.moves.length)}>
-              <span className="ctl-ico">▶</span>
-              <span className="ctl-label">{walk && walkPly < walk.moves.length ? 'Play move' : idx === total - 1 ? 'Finish' : 'Next'}</span>
-            </button>
+            <>
+              <button className="ctl" onClick={back} disabled={idx === 0 && walkPly === 0}>
+                <span className="ctl-ico">
+                  <ChevronLeft size={22} />
+                </span>
+                <span className="ctl-label">Back</span>
+              </button>
+              {interactive && (
+                <button className="ctl" onClick={solver.hint} disabled={solver.state !== 'solve' || solver.hintLevel >= 2}>
+                  <span className="ctl-ico">
+                    <Lightbulb size={20} />
+                  </span>
+                  <span className="ctl-label">Hint</span>
+                </button>
+              )}
+              <button
+                className={`ctl wide ${canAdvance ? 'go' : ''}`}
+                onClick={next}
+                disabled={!canAdvance && !(walk && walkPly < walk.moves.length)}
+              >
+                <span className="ctl-ico">
+                  <ChevronRight size={22} />
+                </span>
+                <span className="ctl-label">
+                  {walk && walkPly < walk.moves.length
+                    ? 'Play move'
+                    : idx === steps.length - 1 && practice?.length
+                      ? 'Practice'
+                      : idx >= total - 1
+                        ? 'Finish'
+                        : 'Next'}
+                </span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -284,7 +379,7 @@ export function LessonPage({ id }: { id: string }) {
 
 function StepCard({ step, label, text, children }: { step: LessonStep; label: string; text: string; children?: React.ReactNode }) {
   return (
-    <div className="coach-card">
+    <div className="coach-card" key={step.title}>
       <div className="coach-top">
         <span className="coach-step">{label}</span>
       </div>
@@ -333,7 +428,7 @@ export function SolverFeedback({
       )}
       {solver.state === 'solve' && showReveal && (
         <div className="row">
-          <button className="btn small" onClick={() => void solver.reveal()}>
+          <button className="btn small ghost" onClick={() => void solver.reveal()}>
             Show the answer
           </button>
         </div>
@@ -342,7 +437,7 @@ export function SolverFeedback({
         <div className="coach-section">
           {showResult && (
             <div className={`coach-result ${solver.state === 'solved' ? 'good' : ''}`}>
-              {solver.state === 'solved' ? (solver.failed ? '✅ Solved' : '✅ Correct!') : '💡 Here’s the solution'}
+              {solver.state === 'solved' ? (solver.failed ? 'Solved' : 'Correct!') : 'Here’s the solution'}
             </div>
           )}
           {solver.alt && alt && <p className="coach-text faint">That works too. {alt}</p>}
@@ -358,7 +453,7 @@ function QuizCard({ step, picked, onPick }: { step: QuizStep; picked: number | n
   const chosen = picked !== null ? step.options[picked] : null;
   const why = useRevealInPanel<HTMLParagraphElement>(picked);
   return (
-    <div className="coach-card">
+    <div className="coach-card" key={step.title}>
       <div className="coach-top">
         <span className="coach-step">{STEP_LABEL.quiz}</span>
       </div>
@@ -366,14 +461,7 @@ function QuizCard({ step, picked, onPick }: { step: QuizStep; picked: number | n
       <p className="coach-text">{step.text}</p>
       <div className="quiz-options">
         {step.options.map((o, i) => (
-          <button
-            key={o.label}
-            className={`quiz-option ${picked === i ? (o.correct ? 'right' : 'wrong') : ''}`}
-            onClick={() => {
-              onPick(i);
-              playSound(o.correct ? 'correct' : 'wrong');
-            }}
-          >
+          <button key={o.label} className={`quiz-option ${picked === i ? (o.correct ? 'right' : 'wrong') : ''}`} onClick={() => onPick(i)}>
             {o.label}
           </button>
         ))}
@@ -390,15 +478,39 @@ function QuizCard({ step, picked, onPick }: { step: QuizStep; picked: number | n
 
 function PuzzleCard({ step, solver }: { step: PuzzleStep; solver: Solver }) {
   const main = sanLine(step.fen, step.line).join(' ');
+  const done = solver.state === 'solved' || solver.state === 'revealed';
   return (
-    <div className="coach-card">
+    <div className={`coach-card ${done && solver.state === 'solved' && !solver.failed ? 'good' : ''}`} key={step.title}>
       <div className="coach-top">
         <span className="coach-step">{STEP_LABEL.puzzle}</span>
       </div>
       <h3 className="coach-title">{step.title}</h3>
       <p className="coach-text">{step.text}</p>
       <SolverFeedback solver={solver} success={step.success} alt={`The idea of this lesson was ${main.split(' ')[0]}.`} />
-      {(solver.state === 'solved' || solver.state === 'revealed') && <p className="coach-line">{main}</p>}
+      {done && <p className="coach-line">{main}</p>}
+    </div>
+  );
+}
+
+function PracticeCard({ puzzle, solver, n, of, graded }: { puzzle: TacticPuzzle; solver: Solver; n: number; of: number; graded?: number }) {
+  const side = solver.solver === 'b' ? 'Black' : 'White';
+  const done = solver.state === 'solved' || solver.state === 'revealed';
+  return (
+    <div className={`coach-card ${graded === 1 ? 'good' : graded === 0 && done ? 'bad' : ''}`} key={puzzle.id}>
+      <div className="coach-top">
+        <span className="coach-step">
+          Practice {n} of {of}
+        </span>
+        {graded !== undefined && <span className={`pill ${graded ? 'accent' : 'danger'}`}>{graded ? 'First try' : 'Missed'}</span>}
+      </div>
+      <h3 className="coach-title">{done ? (solver.state === 'solved' ? (solver.failed ? 'Solved' : 'Correct!') : 'Solution') : `${side} to move`}</h3>
+      {!done && solver.state !== 'wrong' && (
+        <p className="coach-text">
+          {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(puzzle.fen, [puzzle.moves[0]])[0]}</b>. Use what you just learned.
+        </p>
+      )}
+      <SolverFeedback solver={solver} success={explainPuzzle(puzzle)} showResult={false} />
+      {done && <p className="coach-line">{sanLine(puzzle.fen, puzzle.moves).slice(1).join(' ')}</p>}
     </div>
   );
 }
@@ -408,6 +520,7 @@ function useDrill(step: DrillStep | null) {
   const [moves, setMoves] = useState<string[]>([]);
   const [status, setStatus] = useState<'play' | 'thinking' | 'won' | 'lost'>('play');
   const [note, setNote] = useState<string | null>(null);
+  const [losses, setLosses] = useState(0);
   const token = useRef(0);
   const reset = () => {
     token.current++;
@@ -415,8 +528,10 @@ function useDrill(step: DrillStep | null) {
     setStatus('play');
     setNote(null);
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(reset, [step]);
+  useEffect(() => {
+    reset();
+    setLosses(0);
+  }, [step]);
   const chess = useMemo(() => {
     const c = new Chess(step?.fen);
     for (const u of moves) playUci(c, u);
@@ -427,6 +542,7 @@ function useDrill(step: DrillStep | null) {
   const fail = (why: string) => {
     setStatus('lost');
     setNote(why);
+    setLosses((n) => n + 1);
     playSound('wrong');
   };
   const win = () => {
@@ -472,6 +588,7 @@ function useDrill(step: DrillStep | null) {
     lastMove: lastOf(moves.at(-1)),
     status,
     note,
+    losses,
     moveNo: Math.min(Math.ceil(moves.length / 2) + 1, step?.maxMoves ?? 0),
     dests: status === 'play' ? legalDests(chess) : undefined,
     onMove,

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Download, Microscope, Trash2 } from 'lucide-react';
 import { deleteGame, listGames, onDbChange, type GameRecord } from '../lib/storage/db';
+import { findBot } from '../lib/bots/bots';
 import { navigate } from '../lib/router';
 import { Segmented } from '../components/Widgets';
+import { PageHead } from '../components/ui';
 import { useReviewer } from '../state/reviewer';
 
 export function useGames() {
@@ -24,61 +27,60 @@ export function userOutcome(g: GameRecord): 'win' | 'loss' | 'draw' | null {
 export function ResultChip({ g }: { g: GameRecord }) {
   const o = userOutcome(g);
   if (!o) return <span className="tag">{g.result}</span>;
-  return <span className={`result-chip ${o}`}>{o === 'win' ? '+' : o === 'loss' ? '−' : '='}</span>;
+  return <span className={`result-chip ${o}`}>{o === 'win' ? 'W' : o === 'loss' ? 'L' : '½'}</span>;
 }
 
-export function GameRow({ g, compact }: { g: GameRecord; compact?: boolean }) {
+function when(t: number): string {
+  const d = Date.now() - t;
+  if (d < 3_600_000) return `${Math.max(1, Math.round(d / 60_000))} min ago`;
+  if (d < 86_400_000) return `${Math.round(d / 3_600_000)} h ago`;
+  if (d < 7 * 86_400_000) return `${Math.round(d / 86_400_000)} d ago`;
+  return new Date(t).toLocaleDateString();
+}
+
+/** One game in a list: opponent, result, accuracy, when. Opens the review. */
+export function GameListRow({ g, actions }: { g: GameRecord; actions?: boolean }) {
   const job = useReviewer((s) => s.jobs[g.id]);
-  const date = new Date(g.createdAt);
+  const opp = g.userColor ? (g.userColor === 'w' ? g.black : g.white) : null;
+  const bot = opp?.botId ? findBot(opp.botId) : undefined;
   const userAcc = g.accuracy && g.userColor ? g.accuracy[g.userColor] : undefined;
+  const title = opp ? `vs ${opp.name}${opp.elo ? ` (${opp.elo})` : ''}` : `${g.white.name} – ${g.black.name}`;
   return (
-    <tr className="click" onClick={() => navigate(`/review/${g.id}`)}>
-      <td>
-        <ResultChip g={g} />
-      </td>
-      <td>
-        <div style={{ fontWeight: 700 }}>
-          {g.white.name} <span className="faint">{g.white.elo ? `(${g.white.elo})` : ''}</span>
-        </div>
-        <div style={{ fontWeight: 700 }}>
-          {g.black.name} <span className="faint">{g.black.elo ? `(${g.black.elo})` : ''}</span>
-        </div>
-      </td>
-      {!compact && (
-        <td className="muted" style={{ fontSize: '0.85rem', maxWidth: 260 }}>
-          {g.opening ?? '–'}
-          <div className="faint">
-            {g.termination ? `${g.result} · ${g.termination}` : g.result} · {Math.ceil(g.moves.length / 2)} moves
-          </div>
-        </td>
+    <div
+      className="game-row"
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/review/${g.id}`)}
+      onKeyDown={(e) => e.key === 'Enter' && navigate(`/review/${g.id}`)}
+    >
+      <ResultChip g={g} />
+      {bot && (
+        <span className="avatar" style={{ background: bot.tint, width: 34, height: 34, fontSize: '1.2rem', borderRadius: 9 }}>
+          {bot.avatar}
+        </span>
       )}
-      <td>
-        {job?.status === 'running' ? (
-          <span className="faint">{Math.round((job.done / job.total) * 100)}%</span>
-        ) : g.accuracy ? (
-          <div style={{ fontSize: '0.85rem' }}>
-            {userAcc !== undefined ? (
-              <b>{userAcc.toFixed(1)}%</b>
-            ) : (
-              <>
-                <b>{g.accuracy.w.toFixed(0)}</b> / <b>{g.accuracy.b.toFixed(0)}</b>
-              </>
-            )}
-          </div>
-        ) : (
-          <span className="faint">–</span>
-        )}
-      </td>
-      {!compact && (
-        <td className="faint" style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-          {date.toLocaleDateString()}
-          <div>{g.source === 'bot' ? 'vs bot' : g.source}</div>
-        </td>
+      <span className="gr-body">
+        <span className="gr-title">{title}</span>
+        <span className="gr-sub">
+          {g.opening ? `${g.opening} · ` : ''}
+          {Math.ceil(g.moves.length / 2)} moves · {when(g.createdAt)}
+        </span>
+      </span>
+      {job?.status === 'running' ? (
+        <span className="pill">{Math.round((job.done / job.total) * 100)}%</span>
+      ) : userAcc !== undefined ? (
+        <span className="pill accent">{userAcc.toFixed(0)}%</span>
+      ) : g.accuracy ? (
+        <span className="pill">
+          {g.accuracy.w.toFixed(0)} / {g.accuracy.b.toFixed(0)}
+        </span>
+      ) : (
+        <span className="pill">Review</span>
       )}
-      {!compact && (
-        <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
+      {actions && (
+        <span className="row" style={{ gap: 0, flexWrap: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
           <button className="icon-btn" title="Analysis board" onClick={() => navigate(`/analysis?game=${g.id}`)}>
-            🔬
+            <Microscope size={18} />
           </button>
           <button
             className="icon-btn"
@@ -87,11 +89,11 @@ export function GameRow({ g, compact }: { g: GameRecord; compact?: boolean }) {
               if (confirm('Delete this game and its review?')) void deleteGame(g.id);
             }}
           >
-            🗑
+            <Trash2 size={18} />
           </button>
-        </td>
+        </span>
       )}
-    </tr>
+    </div>
   );
 }
 
@@ -115,13 +117,17 @@ export function GamesPage() {
   const unreviewed = list.filter((g) => !g.accuracy).length;
 
   return (
-    <div className="page">
-      <div className="row" style={{ marginBottom: 14 }}>
-        <h1 style={{ margin: 0 }}>Games</h1>
-        <button className="btn small" onClick={() => navigate('/import')}>
-          📥 Import
-        </button>
-        <span className="spacer" />
+    <div className="page narrow">
+      <PageHead
+        title="Games"
+        back="/you"
+        right={
+          <button className="btn small" onClick={() => navigate('/import')}>
+            <Download size={16} /> Import
+          </button>
+        }
+      />
+      <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
         <input placeholder="Search players or openings" value={q} onChange={(e) => setQ(e.target.value)} />
         <Segmented
           value={filter}
@@ -135,8 +141,10 @@ export function GamesPage() {
         />
       </div>
       {unreviewed > 0 && (
-        <div className="row card" style={{ marginBottom: 12, padding: 10 }}>
-          <span className="muted">{unreviewed} game(s) not reviewed yet.</span>
+        <div className="row card" style={{ marginBottom: 12, padding: 12 }}>
+          <span className="muted">
+            {unreviewed} game{unreviewed === 1 ? '' : 's'} not reviewed yet.
+          </span>
           <span className="spacer" />
           <button
             className="btn small"
@@ -154,7 +162,7 @@ export function GamesPage() {
         <div className="empty card">
           <p>No games yet.</p>
           <div className="row" style={{ justifyContent: 'center' }}>
-            <button className="btn primary" onClick={() => navigate('/play')}>
+            <button className="btn primary" onClick={() => navigate('/')}>
               Play a bot
             </button>
             <button className="btn" onClick={() => navigate('/import')}>
@@ -163,24 +171,10 @@ export function GamesPage() {
           </div>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th />
-                <th>Players</th>
-                <th>Opening</th>
-                <th>Accuracy</th>
-                <th>Date</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((g) => (
-                <GameRow key={g.id} g={g} />
-              ))}
-            </tbody>
-          </table>
+        <div className="list game-rows">
+          {list.map((g) => (
+            <GameListRow key={g.id} g={g} actions />
+          ))}
         </div>
       )}
     </div>

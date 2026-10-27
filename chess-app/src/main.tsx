@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles/app.css';
 import { isAndroidApp } from './lib/platform';
+import { loadFont } from './lib/font';
+
+loadFont();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

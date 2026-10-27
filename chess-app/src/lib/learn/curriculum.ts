@@ -1,6 +1,7 @@
 // The tactics course: short interactive lessons. Every position is checked
 // against Stockfish by src/test/curriculum.test.ts.
 import type { PuzzleTheme } from './tags';
+import { EXTRA_LESSONS } from './lessons2';
 
 /** Arrows are UCI-style square pairs, optionally prefixed with a brush: "r:" red, "b:" blue, "y:" yellow (default green). */
 export interface InfoStep {
@@ -61,7 +62,7 @@ export type LessonStep = InfoStep | WalkStep | PuzzleStep | DrillStep | QuizStep
 
 export interface Lesson {
   id: string;
-  group: 'Tactics' | 'Checkmate patterns' | 'Openings' | 'Endgames';
+  group: 'Basics' | 'Tactics' | 'Checkmate patterns' | 'Openings' | 'Endgames';
   title: string;
   icon: string;
   summary: string;
@@ -74,7 +75,7 @@ export interface Lesson {
   steps: LessonStep[];
 }
 
-export const LESSONS: Lesson[] = [
+const BASE_LESSONS: Lesson[] = [
   {
     id: 'cct',
     group: 'Tactics',
@@ -683,6 +684,15 @@ export const LESSONS: Lesson[] = [
         fen: '4k3/8/3p4/4n3/8/5N2/8/4R1K1 w - - 0 1',
         arrows: ['f3e5', 'e1e5', 'b:d6e5'],
       },
+      {
+        kind: 'puzzle',
+        title: 'The loose rook',
+        text: 'White to move. One of Black’s pieces has no defender. Find it and take it.',
+        fen: '6k1/5ppp/8/r7/7q/8/PP1Q1PPP/6K1 w - - 0 1',
+        line: ['d2a5'],
+        hint: 'Look along the queen’s diagonals.',
+        success: 'Qxa5 wins a whole rook: nothing defends it. Scan the board for undefended pieces every move, theirs and yours.',
+      },
     ],
   },
   {
@@ -867,7 +877,9 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
-export const LESSON_GROUPS: Lesson['group'][] = ['Tactics', 'Checkmate patterns', 'Openings', 'Endgames'];
+export const LESSONS: Lesson[] = [...BASE_LESSONS, ...EXTRA_LESSONS];
+
+export const LESSON_GROUPS: Lesson['group'][] = ['Basics', 'Tactics', 'Checkmate patterns', 'Openings', 'Endgames'];
 
 export const findLesson = (id: string) => LESSONS.find((l) => l.id === id);
 
@@ -877,11 +889,11 @@ export const LESSON_FOR_THEME: Record<string, string> = {
   pin: 'pins',
   skewer: 'skewers',
   discovered: 'discovered',
-  hanging: 'cct',
+  hanging: 'defend',
   backRank: 'back-rank',
-  missedMate: 'smothered',
-  exchanges: 'loose-pieces',
-  missedChance: 'cct',
+  missedMate: 'mating-nets',
+  exchanges: 'values',
+  missedChance: 'loose-pieces',
   missedRecapture: 'cct',
   earlyQueen: 'opening-principles',
   samePieceTwice: 'opening-principles',
@@ -890,5 +902,5 @@ export const LESSON_FOR_THEME: Record<string, string> = {
   kingSafety: 'opening-principles',
   fPawn: 'opening-principles',
   endgameKing: 'opposition',
-  passedPawn: 'opposition',
+  passedPawn: 'promotion',
 };

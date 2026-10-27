@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { BookOpen, ChessKnight, Download, GraduationCap, History, Microscope, Puzzle, Settings, UserRound } from 'lucide-react';
 import { Logo } from './components/Widgets';
 import { navigate, useRoute } from './lib/router';
-import { listPuzzles, onDbChange } from './lib/storage/db';
 import { loadOpeningBook } from './lib/chess/openings';
 import { useLiveGame } from './state/game';
 import { HomePage } from './pages/Home';
@@ -15,32 +15,50 @@ import { ImportPage } from './pages/Import';
 import { SettingsPage } from './pages/Settings';
 import { LearnPage } from './pages/Learn';
 import { LessonPage } from './pages/Lesson';
-import { TacticsPage } from './pages/Tactics';
+import { PuzzlesPage } from './pages/Puzzles';
+import { PuzzleSessionPage } from './pages/PuzzleSession';
+import { RushPage } from './pages/Rush';
+import { ExamPage } from './pages/Exam';
+import { YouPage } from './pages/You';
 
-const NAV: { path: string; label: string; icon: string; match: (p: string) => boolean; desktopOnly?: boolean }[] = [
-  { path: '/', label: 'Home', icon: '🏠', match: (p) => p === '/' },
-  { path: '/play', label: 'Play', icon: '♟️', match: (p) => p.startsWith('/play') || p.startsWith('/game') },
-  { path: '/learn', label: 'Learn', icon: '🎓', match: (p) => p.startsWith('/learn') || p.startsWith('/tactics') },
-  { path: '/practice', label: 'Practice', icon: '🎯', match: (p) => p.startsWith('/practice'), desktopOnly: true },
-  { path: '/analysis', label: 'Analysis', icon: '🔬', match: (p) => p.startsWith('/analysis') },
-  { path: '/games', label: 'Games', icon: '📚', match: (p) => p.startsWith('/games') || p.startsWith('/review') },
-  { path: '/import', label: 'Import', icon: '📥', match: (p) => p.startsWith('/import'), desktopOnly: true },
-  { path: '/settings', label: 'Settings', icon: '⚙️', match: (p) => p.startsWith('/settings') },
+interface Tab {
+  path: string;
+  label: string;
+  icon: ReactNode;
+  match: (p: string) => boolean;
+}
+
+const TABS: Tab[] = [
+  { path: '/', label: 'Play', icon: <ChessKnight size={22} />, match: (p) => p === '/' || p.startsWith('/play') || p === '/game' },
+  { path: '/puzzles', label: 'Puzzles', icon: <Puzzle size={22} />, match: (p) => p.startsWith('/puzzles') || p.startsWith('/tactics') },
+  { path: '/learn', label: 'Learn', icon: <GraduationCap size={22} />, match: (p) => p.startsWith('/learn') || p.startsWith('/exam') },
+  {
+    path: '/you',
+    label: 'You',
+    icon: <UserRound size={22} />,
+    match: (p) => ['/you', '/games', '/review', '/analysis', '/import', '/settings', '/practice'].some((x) => p.startsWith(x)),
+  },
 ];
 
-function useDuePuzzles() {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const load = () => listPuzzles().then((ps) => setN(ps.filter((p) => p.due <= Date.now()).length));
-    void load();
-    return onDbChange(load);
-  }, []);
-  return n;
+const TOOLS: Tab[] = [
+  { path: '/games', label: 'Games', icon: <History size={20} />, match: (p) => p.startsWith('/games') || p.startsWith('/review') },
+  { path: '/analysis', label: 'Analysis', icon: <Microscope size={20} />, match: (p) => p.startsWith('/analysis') },
+  { path: '/practice', label: 'Your mistakes', icon: <BookOpen size={20} />, match: (p) => p.startsWith('/practice') },
+  { path: '/import', label: 'Import', icon: <Download size={20} />, match: (p) => p.startsWith('/import') },
+  { path: '/settings', label: 'Settings', icon: <Settings size={20} />, match: (p) => p.startsWith('/settings') },
+];
+
+/** Board screens take the whole phone screen (no tab bar). */
+function isFocus(parts: string[]): boolean {
+  const [root, id] = parts;
+  if (root === 'game' || root === 'review' || root === 'tactics' || root === 'exam') return true;
+  if (root === 'learn' && id) return true;
+  if (root === 'puzzles' && id) return true;
+  return false;
 }
 
 export function App() {
   const route = useRoute();
-  const due = useDuePuzzles();
   const live = useLiveGame((s) => s.game);
   useEffect(() => {
     void loadOpeningBook();
@@ -73,8 +91,17 @@ export function App() {
     case 'learn':
       page = id ? <LessonPage key={id} id={id} /> : <LearnPage />;
       break;
+    case 'exam':
+      page = <ExamPage key={id} levelId={id ?? 'placement'} />;
+      break;
+    case 'puzzles':
+      page = id === 'rush' ? <RushPage /> : id === 'play' ? <PuzzleSessionPage key={route.query.toString()} query={route.query} /> : <PuzzlesPage />;
+      break;
     case 'tactics':
-      page = <TacticsPage key={route.query.toString()} query={route.query} />;
+      page = <PuzzleSessionPage key={route.query.toString()} query={route.query} />;
+      break;
+    case 'you':
+      page = <YouPage />;
       break;
     case 'import':
       page = <ImportPage />;
@@ -93,35 +120,39 @@ export function App() {
       );
   }
 
+  const href = (t: Tab) => `#${t.path === '/' && live?.status === 'playing' ? '/game' : t.path}`;
   return (
-    <div className={`app ${root === 'game' || root === 'review' || root === 'tactics' || (root === 'learn' && id) ? 'focus' : ''}`}>
+    <div className={`app ${isFocus(route.parts) ? 'focus' : ''}`}>
       <nav className="sidebar">
         <a className="brand" href="#/">
           <Logo /> Outpost
         </a>
-        {NAV.map((n) => (
-          <a
-            key={n.path}
-            href={`#${n.path === '/play' && live?.status === 'playing' ? '/game' : n.path}`}
-            className={`nav-link ${n.match(route.path) ? 'active' : ''} ${n.desktopOnly ? 'desk-only' : ''}`}
-          >
-            <span className="ico">{n.icon}</span>
-            {n.label}
-            {n.path === '/practice' && due > 0 && <span className="nav-badge">{due}</span>}
-            {n.path === '/play' && live?.status === 'playing' && (
-              <span className="nav-badge" style={{ background: 'var(--accent)' }}>
-                live
-              </span>
-            )}
+        {TABS.map((t) => (
+          <a key={t.path} href={href(t)} className={`nav-link ${t.match(route.path) && !TOOLS.some((x) => x.match(route.path)) ? 'active' : ''}`}>
+            <span className="ico">{t.icon}</span>
+            {t.label}
+            {t.path === '/' && live?.status === 'playing' && <span className="nav-badge">live</span>}
           </a>
         ))}
-        <div className="sidebar-foot">
-          Stockfish 18 · runs locally
-          <br />
-          No account, no fees.
-        </div>
+        <div className="nav-sep">Tools</div>
+        {TOOLS.map((t) => (
+          <a key={t.path} href={`#${t.path}`} className={`nav-link ${t.match(route.path) ? 'active' : ''}`}>
+            <span className="ico">{t.icon}</span>
+            {t.label}
+          </a>
+        ))}
+        <div className="sidebar-foot">Stockfish 18 · runs on your device</div>
       </nav>
       <main className="main">{page}</main>
+      <nav className="tabbar">
+        {TABS.map((t) => (
+          <a key={t.path} href={href(t)} className={`tab ${t.match(route.path) ? 'active' : ''}`}>
+            {t.icon}
+            {t.label}
+            {t.path === '/' && live?.status === 'playing' && <span className="tab-dot" />}
+          </a>
+        ))}
+      </nav>
     </div>
   );
 }

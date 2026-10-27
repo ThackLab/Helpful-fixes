@@ -324,7 +324,7 @@ export function AnalysisPage({ query }: { query: URLSearchParams }) {
         <div className="player-bar" style={{ minHeight: 30 }}>
           <b>{(flipped ? tree.headers.Black : tree.headers.White) || (flipped ? 'Black' : 'White')}</b>
           <span className="spacer" />
-          <span className="faint" style={{ fontSize: '0.8rem' }}>
+          <span className="faint only-desktop" style={{ fontSize: '0.8rem' }}>
             <span className="kbd">←</span> <span className="kbd">→</span> navigate · <span className="kbd">space</span> best move ·{' '}
             <span className="kbd">f</span> flip
           </span>

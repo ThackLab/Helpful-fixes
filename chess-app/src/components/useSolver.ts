@@ -20,6 +20,8 @@ export interface SolverInput {
   anyMate?: boolean;
   /** Custom first hint (defaults to the generated one). */
   hint?: string;
+  /** Only the solution (or any mate) counts; no engine check of other moves. For timed modes. */
+  strict?: boolean;
 }
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -137,6 +139,20 @@ export function useSolver(input: SolverInput | null) {
         setAlt(true);
         setPly(input.line.length);
         finish('solved');
+        return;
+      }
+      if (input.strict) {
+        if (c.isCheckmate()) {
+          setAlt(true);
+          setPly(input.line.length);
+          finish('solved');
+          return;
+        }
+        setTried(uci);
+        setFailed(true);
+        setMessage(null);
+        setState('wrong');
+        playSound('wrong');
         return;
       }
       // Not the book move: accept it if the engine rates it as just as good.

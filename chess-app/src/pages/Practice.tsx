@@ -13,6 +13,7 @@ import { navigate } from '../lib/router';
 import { playSound, soundForSan } from '../lib/sound';
 import type { Classification } from '../lib/review/types';
 import { hintsFor, refutationText } from '../lib/review/hints';
+import { PageHead } from '../components/ui';
 
 const DAY = 86_400_000;
 const INTERVALS = [DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -152,8 +153,8 @@ export function PracticePage() {
   if (!current) {
     const upcoming = [...puzzles].sort((a, b) => a.due - b.due)[0];
     return (
-      <div className="page">
-        <h1>Learn from your mistakes</h1>
+      <div className="page narrow">
+        <PageHead title="Your mistakes" back="/puzzles" />
         <p className="muted">
           Every blunder, mistake and missed chance from your reviewed games becomes a puzzle here. Solve them on a spaced-repetition schedule until
           the right idea is automatic.

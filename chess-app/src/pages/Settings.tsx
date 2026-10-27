@@ -5,6 +5,7 @@ import { exportAll, importAll, wipeAll, type Backup } from '../lib/storage/db';
 import { useProfile } from '../state/profile';
 import { useSettings, type BoardTheme } from '../state/settings';
 import { saveTextFile } from '../lib/platform';
+import { PageHead } from '../components/ui';
 
 const THEMES: { id: BoardTheme; light: string; dark: string }[] = [
   { id: 'green', light: '#eeeed2', dark: '#769656' },
@@ -57,7 +58,7 @@ export function SettingsPage() {
 
   return (
     <div className="page">
-      <h1>Settings</h1>
+      <PageHead title="Settings" back="/you" />
       <div className="settings-grid">
         <section className="card">
           <h2>Board</h2>

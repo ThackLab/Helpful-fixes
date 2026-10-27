@@ -1,30 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronRight, Eye, Lightbulb, X } from 'lucide-react';
 import { Board } from '../components/Board';
 import { useSolver } from '../components/useSolver';
 import { SolverFeedback } from './Lesson';
 import { findLesson } from '../lib/learn/curriculum';
-import { explainPuzzle, loadPuzzles, type TacticPuzzle } from '../lib/learn/puzzles';
+import { explainPuzzle, type TacticPuzzle } from '../lib/learn/puzzles';
 import { THEME_INFO, type PuzzleTheme } from '../lib/learn/tags';
 import { sanLine } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
 import { pickPuzzle, useLearn } from '../state/learn';
+import { THEME_SETS, usePuzzleBank } from './Puzzles';
 
-/** Themed puzzle trainer: `#/tactics`, `#/tactics?theme=fork,pin` or `#/tactics?lesson=forks`. */
-export function TacticsPage({ query }: { query: URLSearchParams }) {
+/** Rated puzzle solving: `#/puzzles/play`, `?set=fork`, `?theme=fork,pin` or `?lesson=forks`. */
+export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
+  const set = THEME_SETS.find((s) => s.id === query.get('set'));
   const lesson = findLesson(query.get('lesson') ?? '');
-  const themes = useMemo(
-    () => (lesson ? lesson.themes : ((query.get('theme')?.split(',').filter(Boolean) as PuzzleTheme[] | undefined) ?? [])),
-    [lesson, query],
+  const themes = useMemo<PuzzleTheme[]>(
+    () => set?.themes ?? lesson?.themes ?? (query.get('theme')?.split(',').filter(Boolean) as PuzzleTheme[] | undefined) ?? [],
+    [set, lesson, query],
   );
   const { rating, record } = useLearn();
-  const [all, setAll] = useState<TacticPuzzle[] | null>(null);
+  const all = usePuzzleBank();
   const [puzzle, setPuzzle] = useState<TacticPuzzle | null>(null);
   const [delta, setDelta] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
+  const [played, setPlayed] = useState<boolean[]>([]);
 
-  useEffect(() => {
-    void loadPuzzles().then(setAll);
-  }, []);
   const next = () => {
     if (!all) return;
     setDelta(null);
@@ -38,28 +39,33 @@ export function TacticsPage({ query }: { query: URLSearchParams }) {
   const input = useMemo(() => (puzzle ? { fen: puzzle.fen, startMove: puzzle.moves[0], line: puzzle.moves.slice(1) } : null), [puzzle]);
   const solver = useSolver(input);
 
-  // Score the attempt once: a wrong move or a revealed answer counts as a miss.
+  // Score the attempt once: a wrong move, a hint or a revealed answer counts as a miss.
   useEffect(() => {
     if (!puzzle || delta !== null) return;
     if (solver.state === 'solved' || solver.state === 'wrong' || solver.state === 'revealed') {
-      const ok = solver.state === 'solved' && !solver.failed;
+      const ok = solver.state === 'solved' && !solver.failed && solver.hintLevel === 0;
       setDelta(record(puzzle, ok));
       setStreak((s) => (ok ? s + 1 : 0));
+      setPlayed((p) => [...p, ok].slice(-20));
     }
-  }, [solver.state, solver.failed, puzzle, delta, record]);
+  }, [solver.state, solver.failed, solver.hintLevel, puzzle, delta, record]);
 
-  const title = lesson ? lesson.title : (query.get('title') ?? (themes.length === 1 ? THEME_INFO[themes[0]].title : 'Mixed tactics'));
+  const title = set?.title ?? lesson?.title ?? (themes.length === 1 ? THEME_INFO[themes[0]].title : 'Rated puzzles');
   const side = solver.solver === 'b' ? 'Black' : 'White';
   const done = solver.state === 'solved' || solver.state === 'revealed';
+  const clean = solver.state === 'solved' && !solver.failed && solver.hintLevel === 0;
   const lastSan = puzzle ? sanLine(puzzle.fen, [puzzle.moves[0]])[0] : '';
 
   return (
     <div className="game-layout focus-screen lesson-screen">
       <div className="board-column">
         <div className="player-bar lesson-top">
-          <b>🧩 {title}</b>
+          <button className="icon-btn" onClick={() => navigate('/puzzles')} aria-label="Close">
+            <X size={22} />
+          </button>
+          <b>{title}</b>
           <span className="spacer" />
-          {streak > 1 && <span className="faint">🔥 {streak}</span>}
+          {streak > 1 && <span className="pill gold">🔥 {streak}</span>}
           <span className="rating-chip">
             {rating}
             {delta !== null && <em className={delta >= 0 ? 'up' : 'down'}>{delta >= 0 ? `+${delta}` : delta}</em>}
@@ -80,6 +86,11 @@ export function TacticsPage({ query }: { query: URLSearchParams }) {
           ) : (
             <div className="board-placeholder" />
           )}
+          {(solver.state === 'wrong' || (solver.state === 'solved' && clean)) && (
+            <span className={`board-flash ${solver.state === 'wrong' ? 'wrong' : 'right'}`}>
+              {solver.state === 'wrong' ? <X size={26} /> : <Check size={26} />}
+            </span>
+          )}
         </div>
       </div>
 
@@ -88,32 +99,33 @@ export function TacticsPage({ query }: { query: URLSearchParams }) {
           {all && !all.length ? (
             <div className="coach-card">
               <h3 className="coach-title">No puzzles yet</h3>
-              <p className="coach-text">The puzzle collection didn’t load. Check your connection and try again.</p>
+              <p className="coach-text">The puzzle collection didn’t load. Restart the app and try again.</p>
             </div>
           ) : all && !puzzle ? (
             <div className="coach-card">
               <h3 className="coach-title">No puzzles for this theme yet</h3>
-              <button className="btn primary" onClick={() => navigate('/tactics')}>
-                Mixed tactics
+              <button className="btn primary" onClick={() => navigate('/puzzles/play')}>
+                Rated puzzles
               </button>
             </div>
           ) : puzzle ? (
-            <div className="coach-card">
+            <div className={`coach-card ${done ? (clean ? 'good' : '') : solver.state === 'wrong' ? 'bad' : ''}`}>
               <div className="coach-top">
                 <span className="coach-step">Puzzle · {puzzle.rating}</span>
+                {played.length > 0 && (
+                  <span className="result-dots">
+                    {played.slice(-10).map((ok, i) => (
+                      <span key={i} className={ok ? 'ok' : 'bad'} />
+                    ))}
+                  </span>
+                )}
               </div>
-              <h3 className={`coach-title ${solver.state === 'solved' ? 'good-text' : ''}`}>
-                {done
-                  ? solver.state === 'solved'
-                    ? solver.failed
-                      ? '✅ Solved'
-                      : '✅ Correct!'
-                    : '💡 Solution'
-                  : `Find the best move for ${side}`}
+              <h3 className={`coach-title ${clean ? 'good-text' : ''}`}>
+                {done ? (solver.state === 'solved' ? (clean ? 'Correct!' : 'Solved') : 'Solution') : `${side} to move`}
               </h3>
-              {!done && (
+              {!done && solver.state !== 'wrong' && (
                 <p className="coach-text">
-                  {side === 'White' ? 'Black' : 'White'} just played <b>{lastSan}</b>. How do you punish it?
+                  {side === 'White' ? 'Black' : 'White'} just played <b>{lastSan}</b>. Find the best reply.
                 </p>
               )}
               <SolverFeedback solver={solver} success={explainPuzzle(puzzle)} showReveal={false} showResult={false} />
@@ -143,20 +155,22 @@ export function TacticsPage({ query }: { query: URLSearchParams }) {
         </div>
 
         <div className="play-controls">
-          <button className="ctl" onClick={() => navigate('/learn')}>
-            <span className="ctl-ico">✕</span>
-            <span className="ctl-label">Close</span>
-          </button>
           <button className="ctl" onClick={solver.hint} disabled={solver.state !== 'solve' || solver.hintLevel >= 2}>
-            <span className="ctl-ico">💡</span>
+            <span className="ctl-ico">
+              <Lightbulb size={20} />
+            </span>
             <span className="ctl-label">Hint</span>
           </button>
           <button className="ctl" onClick={() => void solver.reveal()} disabled={done || !puzzle}>
-            <span className="ctl-ico">👁</span>
+            <span className="ctl-ico">
+              <Eye size={20} />
+            </span>
             <span className="ctl-label">Solution</span>
           </button>
-          <button className="ctl wide" onClick={next} disabled={!all?.length}>
-            <span className="ctl-ico">▶</span>
+          <button className={`ctl wide ${done ? 'go' : ''}`} onClick={next} disabled={!all?.length}>
+            <span className="ctl-ico">
+              <ChevronRight size={22} />
+            </span>
             <span className="ctl-label">{done ? 'Next puzzle' : 'Skip'}</span>
           </button>
         </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Dices, Play } from 'lucide-react';
 import { BOTS, findBot, type BotProfile } from '../lib/bots/bots';
 import { navigate } from '../lib/router';
 import { validateFen, START_FEN } from '../lib/chess/utils';
@@ -6,6 +7,7 @@ import { useLiveGame } from '../state/game';
 import { useProfile } from '../state/profile';
 import { TIME_CONTROLS, loadSetup, saveSetup, setupBot, startBotGame, suggestedBot, type Setup } from '../state/playSetup';
 import { Segmented, Toggle } from '../components/Widgets';
+import { PageHead } from '../components/ui';
 
 export function PlayPage({ initialFen }: { initialFen?: string }) {
   const [setup, setSetupState] = useState<Setup>(loadSetup);
@@ -29,25 +31,18 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
 
   return (
     <div className="page">
+      <PageHead title="New game" sub={`Your rating ${rating} · ${suggested.name} (${suggested.elo}) is an even game`} back="/" />
       {live?.status === 'playing' && (
-        <div className="card row" style={{ marginBottom: 16, background: '#2f3a26' }}>
-          <span>You have a game in progress against {findBot(live.botId)?.name ?? 'a bot'}.</span>
-          <span className="spacer" />
+        <div className="resume-card" style={{ marginBottom: 16 }}>
+          <span style={{ flex: 1 }}>You have a game in progress against {findBot(live.botId)?.name ?? 'a bot'}.</span>
           <button className="btn primary" onClick={() => navigate('/game')}>
-            Resume game
+            Resume
           </button>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 1fr)', gap: 20 }} className="play-grid">
+      <div className="play-setup">
         <section>
-          <h1>Play a bot</h1>
-          <p className="muted">
-            Bots from complete beginner to full-strength Stockfish. Your rating against bots is <b>{rating}</b> - try{' '}
-            <a href="#/play" onClick={(e) => (e.preventDefault(), setSetup({ botId: suggested.id }))}>
-              {suggested.name} ({suggested.elo})
-            </a>{' '}
-            for an even game.
-          </p>
+          <span className="field-label">Opponent</span>
           <div className="bot-grid">
             {BOTS.map((b) => (
               <button key={b.id} className={`bot-tile ${bot.id === b.id ? 'sel' : ''}`} onClick={() => setSetup({ botId: b.id })}>
@@ -55,7 +50,7 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
                   {b.avatar}
                 </div>
                 <div className="nm">{b.name}</div>
-                <div className="elo">{b.elo}</div>
+                <div className="elo">{b.id === suggested.id ? 'your level' : b.elo}</div>
               </button>
             ))}
             <button className={`bot-tile ${setup.botId.startsWith('custom') ? 'sel' : ''}`} onClick={() => setSetup({ botId: 'custom' })}>
@@ -68,26 +63,28 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
           </div>
         </section>
 
-        <aside className="card" style={{ alignSelf: 'start', position: 'sticky', top: 16 }}>
-          <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-            <div className="avatar lg" style={{ background: bot.tint }}>
+        <aside className="card">
+          <div className="row" style={{ alignItems: 'center', flexWrap: 'nowrap', gap: 14 }}>
+            <div className="avatar lg" style={{ background: bot.tint, width: 72, height: 72, fontSize: '2.7rem', borderRadius: 20 }}>
               {bot.avatar}
             </div>
-            <div>
-              <h2 style={{ marginBottom: 2 }}>{bot.name}</h2>
-              <div className="tag">{bot.elo} Elo</div>
-              <div className="muted" style={{ marginTop: 6, fontStyle: 'italic' }}>
-                “{bot.tagline}”
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ marginBottom: 4 }}>{bot.name}</h2>
+              <span className="pill">{bot.elo} Elo</span>
+              <div className="muted" style={{ marginTop: 6, fontSize: '0.9rem' }}>
+                {bot.tagline}
               </div>
             </div>
           </div>
-          <p className="muted" style={{ fontSize: '0.9rem' }}>
+          <p className="muted" style={{ fontSize: '0.9rem', margin: 0 }}>
             {bot.bio}
           </p>
           {setup.botId.startsWith('custom') && (
-            <div style={{ margin: '10px 0 16px' }}>
+            <div>
               <div className="row">
-                <b>Strength</b>
+                <span className="field-label" style={{ margin: 0 }}>
+                  Strength
+                </span>
                 <span className="spacer" />
                 <input
                   type="number"
@@ -111,45 +108,50 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
             </div>
           )}
 
-          <h3 style={{ marginTop: 14 }}>I play as</h3>
-          <div className="color-pick">
-            {(['w', 'random', 'b'] as const).map((c) => (
-              <button
-                key={c}
-                className={setup.color === c ? 'on' : ''}
-                onClick={() => setSetup({ color: c })}
-                title={c === 'w' ? 'White' : c === 'b' ? 'Black' : 'Random'}
-              >
-                {c === 'random' ? <span style={{ fontSize: 26 }}>🎲</span> : <piece className={`${c === 'w' ? 'white' : 'black'} king`} />}
-              </button>
-            ))}
+          <div>
+            <span className="field-label">I play as</span>
+            <div className="color-pick">
+              {(['w', 'random', 'b'] as const).map((c) => (
+                <button
+                  key={c}
+                  className={setup.color === c ? 'on' : ''}
+                  onClick={() => setSetup({ color: c })}
+                  title={c === 'w' ? 'White' : c === 'b' ? 'Black' : 'Random'}
+                >
+                  {c === 'random' ? <Dices size={26} /> : <piece className={`${c === 'w' ? 'white' : 'black'} king`} />}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <h3 style={{ marginTop: 16 }}>Time control</h3>
-          <Segmented value={setup.tc} onChange={(tc) => setSetup({ tc })} options={TIME_CONTROLS.map((t, i) => ({ value: i, label: t.label }))} />
-
-          <h3 style={{ marginTop: 16 }}>Assistance</h3>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <Toggle checked={setup.takebacks} onChange={(takebacks) => setSetup({ takebacks })} label="Allow takebacks" />
-            <Toggle checked={setup.hints} onChange={(hints) => setSetup({ hints })} label="Allow hints" />
-            <Toggle checked={setup.evalBar} onChange={(evalBar) => setSetup({ evalBar })} label="Show evaluation bar (training mode)" />
-            <Toggle checked={showFen} onChange={setShowFen} label="Start from a custom position" />
-            {showFen && (
-              <>
-                <input placeholder="Paste a FEN" value={fen} onChange={(e) => setFen(e.target.value)} />
-                {fenError && <div className="error-box">{fenError}</div>}
-              </>
-            )}
+          <div>
+            <span className="field-label">Time control</span>
+            <Segmented value={setup.tc} onChange={(tc) => setSetup({ tc })} options={TIME_CONTROLS.map((t, i) => ({ value: i, label: t.label }))} />
           </div>
-          <button className="btn primary big" style={{ width: '100%', marginTop: 18 }} onClick={begin} disabled={!!fenError}>
-            Play {bot.name}
+
+          <div>
+            <span className="field-label">Assistance</span>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <Toggle checked={setup.takebacks} onChange={(takebacks) => setSetup({ takebacks })} label="Allow takebacks" />
+              <Toggle checked={setup.hints} onChange={(hints) => setSetup({ hints })} label="Allow hints" />
+              <Toggle checked={setup.evalBar} onChange={(evalBar) => setSetup({ evalBar })} label="Show evaluation bar" />
+              <Toggle checked={showFen} onChange={setShowFen} label="Start from a position" />
+              {showFen && (
+                <>
+                  <input placeholder="Paste a FEN" value={fen} onChange={(e) => setFen(e.target.value)} />
+                  {fenError && <div className="error-box">{fenError}</div>}
+                </>
+              )}
+            </div>
+          </div>
+          <button className="btn primary big block" onClick={begin} disabled={!!fenError}>
+            <Play size={20} fill="currentColor" /> Play {bot.name}
           </button>
-          <p className="faint" style={{ fontSize: '0.78rem', marginTop: 10 }}>
-            Bots under 1500 use a human-like error model on top of Stockfish; stronger bots use Stockfish’s calibrated strength limiter.
+          <p className="faint" style={{ fontSize: '0.78rem', margin: 0 }}>
+            Bots under 1500 play like people at their rating: they notice some things and miss others. Stronger bots use Stockfish’s strength limiter.
           </p>
         </aside>
       </div>
-      <style>{`@media (max-width: 860px) { .play-grid { grid-template-columns: 1fr !important; } }`}</style>
     </div>
   );
 }

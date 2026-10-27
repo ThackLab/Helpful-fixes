@@ -6,6 +6,7 @@ import { listGames, saveGame, type GameRecord } from '../lib/storage/db';
 import { Segmented, toast } from '../components/Widgets';
 import { useReviewer } from '../state/reviewer';
 import { Chess } from 'chess.js';
+import { PageHead } from '../components/ui';
 
 type Source = 'chesscom' | 'lichess' | 'pgn';
 
@@ -240,8 +241,8 @@ export function ImportPage() {
   const me = user.trim().toLowerCase();
 
   return (
-    <div className="page">
-      <h1>Import games</h1>
+    <div className="page narrow">
+      <PageHead title="Import games" back="/you" />
       <p className="muted">Review your games from chess.com or lichess for free, or paste/upload any PGN (multi-game files are fine).</p>
       <div className="card" style={{ marginBottom: 16 }}>
         <Segmented
