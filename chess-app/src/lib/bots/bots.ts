@@ -23,7 +23,7 @@ export const BOTS: BotProfile[] = [
     tint: '#f6d365',
     style: 'balanced',
     tagline: 'Just learned how the horsey moves',
-    bio: 'Pip moves pieces almost at random and often leaves them hanging. Perfect for your very first games.',
+    bio: 'Pip tries to keep its pieces safe but misses plenty: free pieces, checks, anything more than a move deep. A good first opponent.',
   },
   {
     id: 'mo',
@@ -33,7 +33,7 @@ export const BOTS: BotProfile[] = [
     tint: '#9bd77a',
     style: 'solid',
     tagline: 'Slow and steady (mostly steady)',
-    bio: 'Mo knows the rules and likes to push pawns, but misses most threats.',
+    bio: 'Mo likes to push pawns and usually guards what is attacked, but often misses the piece you leave hanging.',
   },
   {
     id: 'lena',

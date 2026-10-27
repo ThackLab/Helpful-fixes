@@ -31,6 +31,7 @@ it.skipIf(!process.env.BOT_CAL)('bot calibration', { timeout: 6 * 3_600_000 }, a
       drops: number;
       errs: number;
       cpl: number;
+      misses: number;
     }
   >();
   let next = 0;
@@ -61,13 +62,16 @@ it.skipIf(!process.env.BOT_CAL)('bot calibration', { timeout: 6 * 3_600_000 }, a
         drops: 0,
         errs: 0,
         cpl: 0,
+        misses: 0,
       };
       // Errors in still-balanced positions (once a game is decided, the classifier barely reacts).
       for (const m of review.moves) {
         if (m.ply < 8 || m.epBefore < 0.3 || m.epBefore > 0.7) continue;
         s.bal++;
         s.cpl += Math.min(1000, Math.max(0, m.cpLoss));
-        if (m.cpLoss >= 250) s.drops++;
+        // A big loss where the best move was a capture is a missed win, not a piece given away.
+        if (m.cpLoss >= 250 && m.bestSan?.includes('x')) s.misses++;
+        else if (m.cpLoss >= 250) s.drops++;
         else if (m.cpLoss >= 100) s.errs++;
       }
       for (const side of [review.white, review.black]) {
@@ -88,12 +92,12 @@ it.skipIf(!process.env.BOT_CAL)('bot calibration', { timeout: 6 * 3_600_000 }, a
   await Promise.all(Array.from({ length: Math.min(4, jobs.length) }, worker));
   const rows = [...stats.entries()].sort((a, b) => a[0] - b[0]);
   process.stdout.write(
-    '\n\nElo   acc%  blunders  mistakes  inaccuracies  plies/game | balanced positions: moves  ACPL  drops>=250cp%  errors 100-249cp%\n',
+    '\n\nElo   acc%  blunders  mistakes  inaccuracies  plies/game | balanced positions: moves  ACPL  gives-away>=250cp%  errors 100-249cp%  missed-captures%\n',
   );
   for (const [elo, s] of rows) {
     const per = (x: number) => (x / s.sides).toFixed(1).padStart(8);
     process.stdout.write(
-      `${String(elo).padEnd(5)} ${(s.acc / s.sides).toFixed(1).padStart(5)} ${per(s.blunder)}  ${per(s.mistake)}  ${per(s.inaccuracy)}  ${(s.moves / (s.sides / 2)).toFixed(0).padStart(8)}   | ${String(s.bal).padStart(6)} ${(s.cpl / Math.max(1, s.bal)).toFixed(0).padStart(5)} ${((100 * s.drops) / Math.max(1, s.bal)).toFixed(1).padStart(8)} ${((100 * s.errs) / Math.max(1, s.bal)).toFixed(1).padStart(10)}\n`,
+      `${String(elo).padEnd(5)} ${(s.acc / s.sides).toFixed(1).padStart(5)} ${per(s.blunder)}  ${per(s.mistake)}  ${per(s.inaccuracy)}  ${(s.moves / (s.sides / 2)).toFixed(0).padStart(8)}   | ${String(s.bal).padStart(6)} ${(s.cpl / Math.max(1, s.bal)).toFixed(0).padStart(5)} ${((100 * s.drops) / Math.max(1, s.bal)).toFixed(1).padStart(8)} ${((100 * s.errs) / Math.max(1, s.bal)).toFixed(1).padStart(10)} ${((100 * s.misses) / Math.max(1, s.bal)).toFixed(1).padStart(12)}\n`,
     );
   }
 });
