@@ -343,10 +343,10 @@ export function ImportPage() {
                     </td>
                     <td>
                       <div style={{ fontWeight: userWhite ? 800 : 500 }}>
-                        ♔ {c.white} <span className="faint">{c.whiteElo ?? ''}</span>
+                        {c.white} <span className="faint">{c.whiteElo ?? ''}</span>
                       </div>
                       <div style={{ fontWeight: userBlack ? 800 : 500 }}>
-                        ♚ {c.black} <span className="faint">{c.blackElo ?? ''}</span>
+                        {c.black} <span className="faint">{c.blackElo ?? ''}</span>
                       </div>
                     </td>
                     <td className="faint" style={{ fontSize: '0.85rem' }}>
@@ -360,7 +360,7 @@ export function ImportPage() {
                         </span>
                       )}
                       <button className="btn small primary" onClick={() => importOne(c, true)}>
-                        ⭐ Review
+                        Review
                       </button>
                     </td>
                   </tr>

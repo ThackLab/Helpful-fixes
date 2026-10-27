@@ -182,7 +182,7 @@ export function PracticePage() {
               </button>
             </>
           ) : (
-            <p>All caught up! 🎉 {upcoming ? `Next position due ${new Date(upcoming.due).toLocaleString()}.` : ''}</p>
+            <p>All caught up. {upcoming ? `Next position due ${new Date(upcoming.due).toLocaleString()}.` : ''}</p>
           )}
         </div>
       </div>
@@ -197,7 +197,7 @@ export function PracticePage() {
           <b>Find the best move for {side}</b>
         </div>
         <div className="player-bar only-mobile" style={{ minHeight: 30 }}>
-          <b>🎯 Practice</b>
+          <b>Practice</b>
           <span className="spacer" />
           <span className="faint">
             {allDue.length} due · streak {streak}
@@ -222,7 +222,6 @@ export function PracticePage() {
       </div>
       <div className="side-panel">
         <div className="panel-head only-desktop">
-          <span style={{ fontSize: 22 }}>🎯</span>
           <b>Practice</b>
           <span className="spacer" />
           <span className="faint">
@@ -248,19 +247,19 @@ export function PracticePage() {
                   <ClassIcon cls="mistake" /> Not this time
                 </>
               )}
-              {phase === 'revealed' && `💡 The move was ${current.solutionSan[0]}`}
+              {phase === 'revealed' && `The move was ${current.solutionSan[0]}`}
             </h3>
             {phase === 'solve' && (
               <>
                 <p className="coach-text">
                   In your game you played <b>{current.playedSan}</b> here. What should you have played?
                 </p>
-                {hints && hintLevel >= 1 && <p className="coach-hint">💡 {hints.idea}</p>}
-                {hints && hintLevel >= 2 && <p className="coach-hint">👉 {hints.piece}</p>}
+                {hints && hintLevel >= 1 && <p className="coach-hint">{hints.idea}</p>}
+                {hints && hintLevel >= 2 && <p className="coach-hint">{hints.piece}</p>}
                 {hints && hintLevel < 2 && (
                   <div className="row">
                     <button className="btn small" onClick={() => (setHintLevel((h) => h + 1), setFirstTry(false))}>
-                      💡 {hintLevel === 0 ? 'Hint' : 'Another hint'}
+                      {hintLevel === 0 ? 'Hint' : 'Another hint'}
                     </button>
                   </div>
                 )}
@@ -284,7 +283,6 @@ export function PracticePage() {
                 {current.lesson && (
                   <div className="lesson-box">
                     <div className="lesson-head">
-                      <span className="lesson-icon">{current.lesson.icon}</span>
                       <span>
                         <span className="coach-label">Lesson</span>
                         <b>{current.lesson.title}</b>

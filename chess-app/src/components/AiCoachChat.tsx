@@ -27,7 +27,7 @@ export function AiCoachChat({ game, review, ply }: { game: GameRecord; review: G
   if (!apiKey) {
     return (
       <div className="card" style={{ background: 'var(--panel-2)', padding: 12, fontSize: '0.88rem' }}>
-        <b>💬 AI coach (optional)</b>
+        <b>AI coach (optional)</b>
         <p className="muted" style={{ margin: '6px 0 0' }}>
           Ask follow-up questions about any move in plain English, answered by Claude using this Stockfish review. Add your own Anthropic API key in{' '}
           <a href="#/settings">Settings</a> to turn it on.
@@ -69,7 +69,7 @@ export function AiCoachChat({ game, review, ply }: { game: GameRecord; review: G
   return (
     <div className="card" style={{ background: 'var(--panel-2)', padding: 12 }}>
       <div className="row" style={{ marginBottom: 6 }}>
-        <b>💬 Ask the coach</b>
+        <b>Ask the coach</b>
         <span className="spacer" />
         {history.length > 0 && (
           <button className="btn ghost small" onClick={() => setHistory([])}>

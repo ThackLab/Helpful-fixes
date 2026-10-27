@@ -206,10 +206,10 @@ export function SettingsPage() {
           </p>
           <div className="row">
             <button className="btn" onClick={download}>
-              ⬇ Export backup
+              Export backup
             </button>
             <label className="btn">
-              ⬆ Restore backup
+              Restore backup
               <input
                 type="file"
                 accept="application/json,.json"

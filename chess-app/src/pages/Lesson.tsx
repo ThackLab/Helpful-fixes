@@ -464,8 +464,8 @@ export function SolverFeedback({
   const end = useRevealInPanel<HTMLSpanElement>(solver.state);
   return (
     <>
-      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 1 && <p className="coach-hint">💡 {solver.hints.idea}</p>}
-      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 2 && <p className="coach-hint">👉 {solver.hints.piece}</p>}
+      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 1 && <p className="coach-hint">{solver.hints.idea}</p>}
+      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 2 && <p className="coach-hint">{solver.hints.piece}</p>}
       {solver.state === 'checking' && <p className="coach-text faint">Checking your move…</p>}
       {solver.state === 'wrong' && (
         <>

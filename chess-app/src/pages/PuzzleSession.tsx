@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, Eye, Lightbulb, X } from 'lucide-react';
+import { Check, ChevronRight, Eye, Flame, Lightbulb, X } from 'lucide-react';
 import { Board } from '../components/Board';
 import { useSolver } from '../components/useSolver';
-import { SolverFeedback } from './Lesson';
+import { SolverFeedback, arrowShapes } from './Lesson';
 import { findLesson } from '../lib/learn/curriculum';
-import { explainPuzzle, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
+import { explainPuzzle, puzzleIdea, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
 import { THEME_INFO, type PuzzleTheme } from '../lib/learn/tags';
 import { sanLine } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
@@ -27,10 +27,13 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
   const [delta, setDelta] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
   const [played, setPlayed] = useState<boolean[]>([]);
+  /** Showing the starting position with the idea drawn on it. */
+  const [idea, setIdea] = useState(false);
 
   const next = () => {
     if (!all) return;
     setDelta(null);
+    setIdea(false);
     setPuzzle(pickPuzzle(all, useLearn.getState().rating, useLearn.getState().recent, themes));
   };
   useEffect(() => {
@@ -57,6 +60,11 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
   const done = solver.state === 'solved' || solver.state === 'revealed';
   const clean = solver.state === 'solved' && !solver.failed && solver.hintLevel === 0;
   const lastSan = puzzle && !puzzle.noPrev ? sanLine(puzzle.fen, [puzzle.moves[0]])[0] : '';
+  const ideaView = useMemo(() => {
+    if (!idea || !done || !puzzle) return null;
+    const v = puzzleIdea(puzzle);
+    return { fen: v.fen, shapes: arrowShapes(v.arrows), highlights: v.marks.length ? new Map(v.marks.map((m) => [m, 'hl-key'])) : undefined };
+  }, [idea, done, puzzle]);
 
   return (
     <div className="game-layout focus-screen lesson-screen">
@@ -67,14 +75,26 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
           </button>
           <b>{title}</b>
           <span className="spacer" />
-          {streak > 1 && <span className="pill gold">🔥 {streak}</span>}
+          {streak > 1 && (
+            <span className="pill">
+              <Flame size={13} /> {streak}
+            </span>
+          )}
           <span className="rating-chip">
             {rating}
             {delta !== null && <em className={delta >= 0 ? 'up' : 'down'}>{delta >= 0 ? `+${delta}` : delta}</em>}
           </span>
         </div>
         <div className="board-row">
-          {solver.view ? (
+          {ideaView ? (
+            <Board
+              fen={ideaView.fen}
+              orientation={solver.solver === 'b' ? 'black' : 'white'}
+              shapes={ideaView.shapes}
+              highlights={ideaView.highlights}
+              viewOnly
+            />
+          ) : solver.view ? (
             <Board
               fen={solver.view.fen}
               orientation={solver.solver === 'b' ? 'black' : 'white'}
@@ -143,6 +163,9 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
               {done && (
                 <>
                   <p className="coach-line">{solutionSan(puzzle)}</p>
+                  <button className="btn ghost small" onClick={() => setIdea((v) => !v)}>
+                    {idea ? 'Back to the end position' : 'See the idea'}
+                  </button>
                   <div className="chip-row">
                     {puzzle.themes.map((t) => {
                       const info = THEME_INFO[t];

@@ -313,7 +313,7 @@ export function GamePage() {
               <b>{endTitle}</b> <span className="muted">{fromLabel(game.termination)}</span>
             </span>
             <button className="btn primary small" onClick={() => reviewId && navigate(`/review/${reviewId}`)} disabled={!reviewId}>
-              ⭐ Review
+              Review
             </button>
           </div>
         )}
@@ -434,7 +434,7 @@ export function GamePage() {
             {reviewJob?.status === 'done' && <ReviewTeaser gameId={game.savedId!} userColor={userColor} />}
             <div style={{ display: 'grid', gap: 8, marginTop: 18 }}>
               <button className="btn primary big" onClick={() => game.savedId && navigate(`/review/${game.savedId}`)} disabled={!game.savedId}>
-                ⭐ Game Review
+                Game Review
               </button>
               <div className="row" style={{ justifyContent: 'center' }}>
                 <button className="btn" onClick={rematch}>

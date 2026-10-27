@@ -63,6 +63,30 @@ export function loadPuzzles(): Promise<TacticPuzzle[]> {
 }
 
 /** Plain-English explanation of a puzzle's solution. */
+/**
+ * The idea of a puzzle drawn on its starting position: the key move, and arrows
+ * to what it attacks (fork targets, the piece behind a pin, the target of a
+ * discovered attack). Arrows use the lesson format, e.g. "r:c7e8".
+ */
+export function puzzleIdea(p: TacticPuzzle): { fen: string; arrows: string[]; marks: string[] } {
+  const fen = puzzlePosition(p);
+  const key = puzzleSetup(p).line[0];
+  const to = key.slice(2, 4);
+  const arrows = [key.slice(0, 4)];
+  const marks: string[] = [];
+  for (const m of moveMotifs(fen, key)) {
+    const sq = m.squares ?? [];
+    if (m.kind === 'fork' || m.kind === 'attacks') arrows.push(...sq.slice(1).map((t) => `r:${to}${t}`));
+    else if ((m.kind === 'pin' || m.kind === 'skewer') && sq.length === 3) {
+      arrows.push(`r:${to}${sq[2]}`);
+      marks.push(sq[1]);
+    } else if ((m.kind === 'discovered' || m.kind === 'discoveredCheck') && sq.length === 2) arrows.push(`r:${sq[0]}${sq[1]}`);
+    else if (m.kind === 'threatensMate' && sq.length === 2) arrows.push(`y:${sq[0]}${sq[1]}`);
+    else if (m.kind === 'freePiece' || m.kind === 'winsMaterial' || m.kind === 'mate') marks.push(to);
+  }
+  return { fen, arrows: [...new Set(arrows)], marks: [...new Set(marks)] };
+}
+
 export function explainPuzzle(p: TacticPuzzle): string {
   const fen = puzzlePosition(p);
   const solver = new Chess(fen).turn();

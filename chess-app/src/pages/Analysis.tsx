@@ -1,3 +1,4 @@
+import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
@@ -369,20 +370,20 @@ export function AnalysisPage({ query }: { query: URLSearchParams }) {
           <TreeView tree={tree} cur={node.id} onSelect={goTo} />
           {node.comment && (
             <div className="card" style={{ marginTop: 10, background: 'var(--panel-2)', padding: 10, fontSize: '0.9rem' }}>
-              💬 {node.comment}
+              {node.comment}
             </div>
           )}
         </div>
 
         <div className="panel-foot">
           <button className="icon-btn" title="Start (↑)" onClick={() => setCur(tree.rootId)}>
-            ⏮
+            <ChevronsLeft size={18} />
           </button>
           <button className="icon-btn" title="Back (←)" onClick={() => node.parentId && setCur(node.parentId)}>
-            ◀
+            <ChevronLeft size={18} />
           </button>
           <button className="icon-btn" title="Forward (→)" onClick={() => node.children[0] && setCur(node.children[0])}>
-            ▶
+            <ChevronRight size={18} />
           </button>
           <button
             className="icon-btn"
@@ -393,17 +394,17 @@ export function AnalysisPage({ query }: { query: URLSearchParams }) {
               setCur(n.id);
             }}
           >
-            ⏭
+            <ChevronsRight size={18} />
           </button>
           <button className="icon-btn" title="Flip (f)" onClick={() => setFlipped((f) => !f)}>
-            ⇅
+            <ArrowUpDown size={18} />
           </button>
           <span className="spacer" />
           <button className="btn small primary" onClick={reviewThis} title="Full game review of the main line">
-            ⭐ Review
+            Review
           </button>
           <button className="btn small" onClick={() => setModal('import')}>
-            📋 Load
+            Load
           </button>
           <button className="btn small" onClick={() => setModal('export')}>
             Export

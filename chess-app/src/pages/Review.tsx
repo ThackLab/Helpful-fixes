@@ -382,7 +382,6 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     const solved = Object.values(guided.results).filter((r) => r === 'first').length;
     panel = (
       <div className="lesson-done">
-        <div style={{ fontSize: 40 }}>🎓</div>
         <h2>Lesson complete</h2>
         <p className="muted">
           You found the better move first time in <b>{solved}</b> of <b>{guided.plies.length}</b> positions. They are saved in Practice, so they will
@@ -417,12 +416,12 @@ export function ReviewPage({ gameId }: { gameId: string }) {
               move on the board.
             </p>
             {retry.attempts > 0 && <p className="coach-text faint">Not that one - try again.</p>}
-            {hints && (retry.hints ?? 0) >= 1 && <p className="coach-hint">💡 {hints.idea}</p>}
-            {hints && (retry.hints ?? 0) >= 2 && <p className="coach-hint">👉 {hints.piece}</p>}
+            {hints && (retry.hints ?? 0) >= 1 && <p className="coach-hint">{hints.idea}</p>}
+            {hints && (retry.hints ?? 0) >= 2 && <p className="coach-hint">{hints.piece}</p>}
             <div className="row">
               {hints && (retry.hints ?? 0) < 2 && (
                 <button className="btn small" onClick={() => setRetry({ ...retry, hints: (retry.hints ?? 0) + 1 })}>
-                  💡 {(retry.hints ?? 0) === 0 ? 'Hint' : 'Another hint'}
+                  {(retry.hints ?? 0) === 0 ? 'Hint' : 'Another hint'}
                 </button>
               )}
               <button className="btn small" onClick={reveal}>
@@ -454,8 +453,8 @@ export function ReviewPage({ gameId }: { gameId: string }) {
           <>
             <h3 className="coach-title" style={{ color: retry.state === 'correct' ? CLASS_META.best.color : undefined }}>
               {retry.state === 'correct'
-                ? `✅ Correct${retry.tried && retry.tried !== m.bestMove ? ' - that works too' : ''}!`
-                : `💡 The move was ${m.bestSan}`}
+                ? `Correct${retry.tried && retry.tried !== m.bestMove ? ' - that works too' : ''}!`
+                : `The move was ${m.bestSan}`}
             </h3>
             <div className="coach-section">
               <div className="coach-label">What happened in the game</div>
@@ -470,7 +469,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
                 <p className="coach-line">{formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
               </div>
             )}
-            {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} theme={lesson.theme} />}
+            {lesson && <LessonBox title={lesson.info.title} rule={lesson.info.rule} theme={lesson.theme} />}
             <div className="row">
               <button className="btn small" onClick={() => showLine(m.fenBefore, bestLineFor(m))}>
                 ▶ Play the line
@@ -503,7 +502,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         {m.bestSan && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
           <p className="coach-line">Best: {formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
         )}
-        {lesson && <LessonBox title={lesson.info.title} icon={lesson.info.icon} rule={lesson.info.rule} theme={lesson.theme} />}
+        {lesson && <LessonBox title={lesson.info.title} rule={lesson.info.rule} theme={lesson.theme} />}
         <div className="row" style={{ marginTop: 4 }}>
           {retryable && (
             <button className="btn small primary" onClick={() => setRetry({ state: 'try', attempts: 0 })}>
@@ -557,7 +556,6 @@ export function ReviewPage({ gameId }: { gameId: string }) {
 
       <div className="side-panel review-panel">
         <div className="panel-head only-desktop">
-          <span style={{ fontSize: 22 }}>⭐</span>
           <b style={{ fontSize: '1.1rem' }}>Game Review</b>
           <span className="spacer" />
           {review && (
@@ -592,7 +590,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
           {line && (
             <div className="line-card">
               <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.max(0, line.idx - 1) })} aria-label="Back">
-                ◀
+                <ChevronLeft size={18} />
               </button>
               <div style={{ flex: 1, fontSize: '0.88rem' }}>
                 {formatLine(line.base, sanOf(line.base, line.moves))
@@ -604,7 +602,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
                   ))}
               </div>
               <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.min(line.moves.length, line.idx + 1) })} aria-label="Forward">
-                ▶
+                <ChevronRight size={18} />
               </button>
               <button className="btn ghost small" onClick={() => setLine(null)}>
                 Close
@@ -759,16 +757,15 @@ function CourseLink({ theme }: { theme: string }) {
   if (!course) return null;
   return (
     <a className="course-link" href={`#/learn/${course.id}`}>
-      {course.icon} Take the “{course.title}” lesson ▸
+      Take the “{course.title}” lesson ›
     </a>
   );
 }
 
-function LessonBox({ icon, title, rule, theme }: { icon: string; title: string; rule: string; theme?: string }) {
+function LessonBox({ title, rule, theme }: { title: string; rule: string; theme?: string }) {
   return (
     <div className="lesson-box">
       <div className="lesson-head">
-        <span className="lesson-icon">{icon}</span>
         <span>
           <span className="coach-label">Lesson</span>
           <b>{title}</b>
@@ -787,7 +784,6 @@ function LessonList({ lessons, moves, onJump }: { lessons: GameLessons; moves: R
       {lessons.lessons.map((l) => (
         <div key={l.theme} className="lesson-item">
           <div className="lesson-head">
-            <span className="lesson-icon">{l.icon}</span>
             <b>{l.title}</b>
           </div>
           <p className="muted">{l.detail}</p>
@@ -807,7 +803,6 @@ function LessonList({ lessons, moves, onJump }: { lessons: GameLessons; moves: R
       {lessons.strengths.length > 0 && (
         <div className="lesson-item good">
           <div className="lesson-head">
-            <span className="lesson-icon">💪</span>
             <b>What you did well</b>
           </div>
           {lessons.strengths.map((s) => (
@@ -841,7 +836,7 @@ function Overview({
     <div>
       {lessons && lessons.practice.length > 0 && (
         <button className="btn primary learn-btn" onClick={onLearn}>
-          🎓 Learn from this game
+          Learn from this game
           <span>
             Find the better move in your {lessons.practice.length} key moment{lessons.practice.length > 1 ? 's' : ''}
           </span>
@@ -857,7 +852,7 @@ function Overview({
           )}
         </div>
         <p className="coach-text">{review.summary.replace(/ Coach's tips:.*$/, '')}</p>
-        {review.opening && <p className="coach-line">📖 {review.opening.name}</p>}
+        {review.opening && <p className="coach-line">{review.opening.name}</p>}
       </div>
 
       {lessons && (lessons.lessons.length > 0 || lessons.strengths.length > 0) && (
