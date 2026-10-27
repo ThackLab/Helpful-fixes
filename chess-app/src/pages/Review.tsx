@@ -22,7 +22,7 @@ import { expectedFor, scoreToExpected } from '../lib/review/winprob';
 import { getGame, getReview, onDbChange, saveGame, savePuzzles, saveReview, type GameRecord } from '../lib/storage/db';
 import { summariseGame } from '../lib/review/review';
 import { puzzlesFrom, useReviewer } from '../state/reviewer';
-import { findBot } from '../lib/bots/bots';
+import { monogram } from '../lib/bots/bots';
 import type { Score } from '../lib/engine/uci';
 
 const SUMMARY_CLASSES: Classification[] = CLASS_ORDER.filter((c) => c !== 'forced');
@@ -345,8 +345,8 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     const s = summary(c);
     return (
       <PlayerBar
-        avatar={p.isUser ? '🙂' : p.botId ? (findBot(p.botId)?.avatar ?? '🤖') : c === 'w' ? '♔' : '♚'}
-        tint={p.isUser ? '#81b64c' : p.botId ? findBot(p.botId)?.tint : undefined}
+        avatar={monogram(p.name || (c === 'w' ? 'White' : 'Black'))}
+        tint={undefined}
         name={p.name}
         elo={p.elo}
         fen={board?.fen ?? game.startFen}

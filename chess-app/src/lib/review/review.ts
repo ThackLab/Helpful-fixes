@@ -1,7 +1,7 @@
 import { Chess, type Color, type Square } from 'chess.js';
 import type { Engine } from '../engine/engine';
 import type { OpeningBook } from '../chess/openings';
-import { formatLine, materialBalance, moveToUci, nonPawnPieces, sanLine } from '../chess/utils';
+import { formatLine, materialBalance, moveToUci, nonPawnPieces, sanLine, turnOf } from '../chess/utils';
 import { estimateRating, gameAccuracy, moveAccuracy } from './accuracy';
 import { classifyMove, evalScore } from './classify';
 import { explainMove } from './explain';
@@ -16,7 +16,7 @@ import {
   type PositionEval,
   type ReviewedMove,
 } from './types';
-import { clampedCp, winPercent } from './winprob';
+import { clampedCp, expectedFor, winPercent } from './winprob';
 
 export interface ReviewOptions {
   engines: Engine[];
@@ -29,6 +29,17 @@ export interface ReviewOptions {
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
   onPosition?: (index: number, pos: PositionEval) => void;
+  /** Evaluations already known (e.g. analysed in the background during the game), and where to keep new ones. */
+  cache?: {
+    get: (fen: string, minDepth: number, multipv: number) => Promise<PositionEval | null>;
+    put: (pos: PositionEval, multipv: number) => Promise<void>;
+  };
+  /**
+   * Search every position at this depth first, then only the positions where
+   * something happens (a move that loses ground, an only move, a mate) at the
+   * full depth. Quiet positions keep the quicker evaluation.
+   */
+  quickDepth?: number;
 }
 
 export interface GameInput {
@@ -84,8 +95,24 @@ export async function analysePositions(game: GameInput, opts: ReviewOptions): Pr
       results[i] = { fen: fens[i], lines: [], depth: 0, terminal: terminal[i] };
     }
   }
+  // Positions already analysed deeply enough need no search at all.
+  if (opts.cache)
+    await Promise.all(
+      fens.map(async (fen, i) => {
+        if (results[i]) return;
+        const hit = await opts.cache!.get(fen, opts.depth, multipv);
+        if (hit) results[i] = finalDraw(hit, i);
+      }),
+    );
   let done = results.filter(Boolean).length;
   opts.onProgress?.(done, total);
+
+  // A repetition / 50-move draw as the final position is a draw whatever the engine says.
+  function finalDraw(pos: PositionEval, i: number): PositionEval {
+    return terminal[i] === 'draw' && i === fens.length - 1
+      ? { ...pos, lines: pos.lines.map((l) => ({ ...l, score: { type: 'cp', value: 0 } })) }
+      : pos;
+  }
 
   const analyseOne = async (engine: Engine, i: number, depth: number, movetime?: number): Promise<PositionEval> => {
     const handle = engine.search({
@@ -105,9 +132,8 @@ export async function analysePositions(game: GameInput, opts: ReviewOptions): Pr
       lines: res.lines.filter((l) => l.pv.length).map((l) => ({ score: l.score, pv: l.pv, san: sanLine(fen, l.pv, 12), depth: l.depth })),
       terminal: terminal[i],
     };
-    // A repetition / 50-move draw as the final position is a draw whatever the engine says.
-    if (terminal[i] === 'draw' && i === fens.length - 1) pos.lines = pos.lines.map((l) => ({ ...l, score: { type: 'cp', value: 0 } }));
-    return pos;
+    if (depth >= opts.depth) void opts.cache?.put(pos, multipv);
+    return finalDraw(pos, i);
   };
 
   const runQueue = async (queue: number[], depth: number, movetime: number | undefined, onDone: (i: number, p: PositionEval) => void) => {
@@ -124,13 +150,33 @@ export async function analysePositions(game: GameInput, opts: ReviewOptions): Pr
   };
 
   const firstPass = fens.map((_, i) => i).filter((i) => !results[i]);
-  await runQueue(firstPass, opts.depth, opts.maxTimeMs, (i, pos) => {
+  // Only worth two passes when there is a lot left to search.
+  const quick = opts.quickDepth && opts.quickDepth < opts.depth && firstPass.length > 12 ? opts.quickDepth : undefined;
+  // In two-pass mode the progress bar counts both passes.
+  let work = quick ? firstPass.length * 2 : firstPass.length;
+  let worked = 0;
+  const progress = () => opts.onProgress?.(Math.round(done + ((total - done) * worked) / Math.max(1, work)), total);
+  await runQueue(firstPass, quick ?? opts.depth, quick ? undefined : opts.maxTimeMs, (i, pos) => {
     results[i] = pos;
-    done++;
+    worked++;
     opts.onPosition?.(i, pos);
-    opts.onProgress?.(done, total);
+    progress();
   });
   if (opts.signal?.aborted) throw new DOMException('Review cancelled', 'AbortError');
+
+  if (quick) {
+    const deepen = criticalPositions(game, fens, results, firstPass);
+    work = firstPass.length + deepen.length;
+    progress();
+    await runQueue(deepen, opts.depth, opts.maxTimeMs, (i, pos) => {
+      results[i] = pos;
+      worked++;
+      opts.onPosition?.(i, pos);
+      progress();
+    });
+    if (opts.signal?.aborted) throw new DOMException('Review cancelled', 'AbortError');
+  }
+  opts.onProgress?.(total, total);
 
   // Consistency pass: when the engine's own best move was played, the next
   // position should evaluate about the same. A big jump means one of the two
@@ -153,6 +199,33 @@ export async function analysePositions(game: GameInput, opts: ReviewOptions): Pr
     if (opts.signal?.aborted) throw new DOMException('Review cancelled', 'AbortError');
   }
   return results;
+}
+
+/**
+ * Positions whose classification could depend on a deeper look: either side of
+ * a move that loses ground, an only move, or anything involving a mate.
+ */
+function criticalPositions(game: GameInput, fens: string[], results: PositionEval[], searched: number[]): number[] {
+  const out = new Set<number>();
+  const fresh = new Set(searched);
+  const ep = (pos: PositionEval | undefined, c: Color) =>
+    pos?.lines[0] ? expectedFor(pos.lines[0].score, c) : pos?.terminal === 'checkmate' ? (turnOf(pos.fen) === c ? 0 : 1) : 0.5;
+  for (let i = 0; i < game.moves.length; i++) {
+    const a = results[i];
+    const b = results[i + 1];
+    if (!a) continue;
+    const mover = turnOf(fens[i]);
+    const loss = ep(a, mover) - ep(b, mover);
+    const best = a.lines[0];
+    const second = a.lines[1];
+    const onlyMove = !!best && best.pv[0] === game.moves[i] && !!second && expectedFor(best.score, mover) - expectedFor(second.score, mover) >= 0.08;
+    const mate = [a, b].some((p) => p?.lines.some((l) => l.score.type === 'mate'));
+    if (loss >= 0.025 || onlyMove || mate) {
+      out.add(i);
+      out.add(i + 1);
+    }
+  }
+  return [...out].filter((i) => fresh.has(i) && i < fens.length && !results[i]?.terminal).sort((x, y) => x - y);
 }
 
 function detectPhases(plies: Ply[], bookEnd: number): Phase[] {

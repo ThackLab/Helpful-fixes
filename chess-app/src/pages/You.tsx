@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BookOpen, ChessKnight, Download, Flame, GraduationCap, History, Microscope, Puzzle, Settings, UserRound } from 'lucide-react';
+import { BookOpen, Check, ChessKnight, Download, Flame, GraduationCap, History, Microscope, Puzzle, Settings, UserRound } from 'lucide-react';
 import { LEVELS, currentLevel, levelPassed } from '../lib/learn/levels';
 import { findLesson } from '../lib/learn/curriculum';
 import { navigate } from '../lib/router';
@@ -123,9 +123,7 @@ export function YouPage() {
           const stars = done.reduce((a, x) => a + (x.p?.stars ?? 0), 0);
           return (
             <div className="report-row" key={l.id}>
-              <span className="level-badge" style={{ background: l.color, width: 36, height: 36, fontSize: '1rem', borderRadius: 11 }}>
-                {l.n}
-              </span>
+              <span className="level-badge">{l.n}</span>
               <span className="rr-body">
                 <span className="rr-title">{l.name}</span>
                 <div className="rr-sub">
@@ -145,9 +143,7 @@ export function YouPage() {
         <div className="list skill-list">
           {skills.map((s) => (
             <div className="skill" key={s.id}>
-              <span className="sk-name">
-                {s.icon} {s.title}
-              </span>
+              <span className="sk-name">{s.title}</span>
               <Meter value={s.pct} gold={s.pct < 0.5} />
               <span className="sk-val">{Math.round(s.pct * 100)}%</span>
             </div>
@@ -177,7 +173,7 @@ export function YouPage() {
                 return (
                   <ListRow
                     key={id}
-                    icon={lesson.icon}
+                    icon={<Check size={16} />}
                     title={lesson.title}
                     sub={`Best ${p.best ?? 0}%`}
                     end={<Stars n={p.stars ?? 1} />}

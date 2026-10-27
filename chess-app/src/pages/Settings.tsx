@@ -9,6 +9,7 @@ import { saveTextFile } from '../lib/platform';
 import { PageHead } from '../components/ui';
 
 const THEMES: { id: BoardTheme; light: string; dark: string }[] = [
+  { id: 'mono', light: '#e6e6e6', dark: '#9e9e9e' },
   { id: 'green', light: '#eeeed2', dark: '#769656' },
   { id: 'brown', light: '#f0d9b5', dark: '#b58863' },
   { id: 'blue', light: '#eae9d2', dark: '#4b7399' },
@@ -104,6 +105,12 @@ export function SettingsPage() {
           <h2>Game review</h2>
           <Row title="Review automatically" desc="Start the Stockfish review as soon as a game ends">
             <Toggle checked={s.autoReview} onChange={(autoReview) => s.set({ autoReview })} />
+          </Row>
+          <Row
+            title="Analyse while you play"
+            desc="Reviews positions in the background during the game, so the review is ready almost as soon as it ends"
+          >
+            <Toggle checked={s.liveAnalysis} onChange={(liveAnalysis) => s.set({ liveAnalysis })} />
           </Row>
           <Row title="Review depth" desc="Deeper is more accurate but slower">
             <Segmented

@@ -4,23 +4,25 @@ import { Board } from '../components/Board';
 import { useSolver } from '../components/useSolver';
 import { SolverFeedback } from './Lesson';
 import { findLesson } from '../lib/learn/curriculum';
-import { explainPuzzle, type TacticPuzzle } from '../lib/learn/puzzles';
+import { explainPuzzle, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
 import { THEME_INFO, type PuzzleTheme } from '../lib/learn/tags';
 import { sanLine } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
 import { pickPuzzle, useLearn } from '../state/learn';
-import { THEME_SETS, usePuzzleBank } from './Puzzles';
+import { COLLECTIONS, THEME_SETS, usePuzzleBank } from './Puzzles';
 
 /** Rated puzzle solving: `#/puzzles/play`, `?set=fork`, `?theme=fork,pin` or `?lesson=forks`. */
 export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
   const set = THEME_SETS.find((s) => s.id === query.get('set'));
+  const collection = COLLECTIONS.find((c) => c.id === query.get('collection'));
   const lesson = findLesson(query.get('lesson') ?? '');
   const themes = useMemo<PuzzleTheme[]>(
     () => set?.themes ?? lesson?.themes ?? (query.get('theme')?.split(',').filter(Boolean) as PuzzleTheme[] | undefined) ?? [],
     [set, lesson, query],
   );
   const { rating, record } = useLearn();
-  const all = usePuzzleBank();
+  const bank = usePuzzleBank();
+  const all = useMemo(() => (bank && collection ? bank.filter(collection.match) : bank), [bank, collection]);
   const [puzzle, setPuzzle] = useState<TacticPuzzle | null>(null);
   const [delta, setDelta] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
@@ -36,7 +38,7 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [all]);
 
-  const input = useMemo(() => (puzzle ? { fen: puzzle.fen, startMove: puzzle.moves[0], line: puzzle.moves.slice(1) } : null), [puzzle]);
+  const input = useMemo(() => (puzzle ? puzzleSetup(puzzle) : null), [puzzle]);
   const solver = useSolver(input);
 
   // Score the attempt once: a wrong move, a hint or a revealed answer counts as a miss.
@@ -50,11 +52,11 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
     }
   }, [solver.state, solver.failed, solver.hintLevel, puzzle, delta, record]);
 
-  const title = set?.title ?? lesson?.title ?? (themes.length === 1 ? THEME_INFO[themes[0]].title : 'Rated puzzles');
+  const title = collection?.title ?? set?.title ?? lesson?.title ?? (themes.length === 1 ? THEME_INFO[themes[0]].title : 'Puzzles');
   const side = solver.solver === 'b' ? 'Black' : 'White';
   const done = solver.state === 'solved' || solver.state === 'revealed';
   const clean = solver.state === 'solved' && !solver.failed && solver.hintLevel === 0;
-  const lastSan = puzzle ? sanLine(puzzle.fen, [puzzle.moves[0]])[0] : '';
+  const lastSan = puzzle && !puzzle.noPrev ? sanLine(puzzle.fen, [puzzle.moves[0]])[0] : '';
 
   return (
     <div className="game-layout focus-screen lesson-screen">
@@ -111,7 +113,10 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
           ) : puzzle ? (
             <div className={`coach-card ${done ? (clean ? 'good' : '') : solver.state === 'wrong' ? 'bad' : ''}`}>
               <div className="coach-top">
-                <span className="coach-step">Puzzle · {puzzle.rating}</span>
+                <span className="coach-step">
+                  {puzzle.rating}
+                  {puzzle.source ? ` · ${puzzle.source}` : ''}
+                </span>
                 {played.length > 0 && (
                   <span className="result-dots">
                     {played.slice(-10).map((ok, i) => (
@@ -125,13 +130,19 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
               </h3>
               {!done && solver.state !== 'wrong' && (
                 <p className="coach-text">
-                  {side === 'White' ? 'Black' : 'White'} just played <b>{lastSan}</b>. Find the best reply.
+                  {lastSan ? (
+                    <>
+                      {side === 'White' ? 'Black' : 'White'} just played <b>{lastSan}</b>. Find the best reply.
+                    </>
+                  ) : (
+                    'Find the best move.'
+                  )}
                 </p>
               )}
               <SolverFeedback solver={solver} success={explainPuzzle(puzzle)} showReveal={false} showResult={false} />
               {done && (
                 <>
-                  <p className="coach-line">{sanLine(puzzle.fen, puzzle.moves).slice(1).join(' ')}</p>
+                  <p className="coach-line">{solutionSan(puzzle)}</p>
                   <div className="chip-row">
                     {puzzle.themes.map((t) => {
                       const info = THEME_INFO[t];

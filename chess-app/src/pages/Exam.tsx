@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronRight, Compass, Trophy, X } from 'lucide-react';
 import { Board } from '../components/Board';
 import { useSolver } from '../components/useSolver';
-import { explainPuzzle, type TacticPuzzle } from '../lib/learn/puzzles';
+import { explainPuzzle, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
 import { THEME_INFO } from '../lib/learn/tags';
 import { EXAM_PASS, EXAM_SIZE, LEVELS, examGrade, findLevel, type Level } from '../lib/learn/levels';
 import { START_FEN, sanLine } from '../lib/chess/utils';
@@ -53,7 +53,7 @@ export function ExamPage({ levelId }: { levelId: string }) {
   }, [all, items, placement, level]);
 
   const item = phase === 'run' ? items?.[idx] : undefined;
-  const input = useMemo(() => (item ? { fen: item.puzzle.fen, startMove: item.puzzle.moves[0], line: item.puzzle.moves.slice(1) } : null), [item]);
+  const input = useMemo(() => (item ? puzzleSetup(item.puzzle) : null), [item]);
   const solver = useSolver(input);
   const done = solver.state === 'solved' || solver.state === 'revealed' || solver.state === 'wrong';
   const right = solver.state === 'solved' && !solver.failed;
@@ -202,7 +202,14 @@ export function ExamPage({ levelId }: { levelId: string }) {
               <h3 className="coach-title">{done ? (right ? 'Correct' : 'Not this time') : `${side} to move`}</h3>
               {!done && (
                 <p className="coach-text">
-                  {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(item.puzzle.fen, [item.puzzle.moves[0]])[0]}</b>. Find the best move.
+                  {item.puzzle.noPrev ? (
+                    'Find the best move.'
+                  ) : (
+                    <>
+                      {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(item.puzzle.fen, [item.puzzle.moves[0]])[0]}</b>. Find the best
+                      move.
+                    </>
+                  )}
                 </p>
               )}
               {solver.state === 'checking' && <p className="coach-text faint">Checking your move…</p>}
@@ -210,7 +217,7 @@ export function ExamPage({ levelId }: { levelId: string }) {
                 <>
                   {solver.state === 'wrong' && solver.message && <p className="coach-text wrong-text">{solver.message}</p>}
                   <p className="coach-text">{explainPuzzle(item.puzzle)}</p>
-                  <p className="coach-line">{sanLine(item.puzzle.fen, item.puzzle.moves).slice(1).join(' ')}</p>
+                  <p className="coach-line">{solutionSan(item.puzzle)}</p>
                 </>
               )}
             </div>
@@ -220,10 +227,7 @@ export function ExamPage({ levelId }: { levelId: string }) {
               {placement ? (
                 <>
                   <span className="coach-step">Placement result</span>
-                  <span
-                    className="level-badge"
-                    style={{ background: LEVELS[outcome.placedAt!].color, width: 64, height: 64, fontSize: '1.8rem', borderRadius: 20 }}
-                  >
+                  <span className="level-badge" style={{ fontSize: '3.5rem' }}>
                     {outcome.placedAt! + 1}
                   </span>
                   <h3>

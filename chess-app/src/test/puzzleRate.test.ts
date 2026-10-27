@@ -13,22 +13,21 @@ import { customBot } from '../lib/bots/bots';
 import { chooseBotMove } from '../lib/bots/brain';
 import { playUci } from '../lib/chess/utils';
 import type { Engine } from '../lib/engine/engine';
-import type { TacticPuzzle } from '../lib/learn/puzzles';
+import { puzzlePosition, puzzleSetup, type TacticPuzzle } from '../lib/learn/puzzles';
 import { nodeEngine } from './nodeEngine';
 
 // PUZZLE_DIR lets a long run write somewhere other than data/ (copy the files back afterwards).
 const dir = process.env.PUZZLE_DIR ?? fileURLToPath(new URL('../../data', import.meta.url));
 const MINED = `${dir}/puzzles-mined.json`;
+const REAL = `${dir}/puzzles-real.json`;
 export const RATINGS = `${dir}/puzzle-ratings.json`;
 const LEVELS = [300, 600, 900, 1200, 1450, 1900];
 const TRIES = 2;
 
 /** One attempt: the bot plays the solver's moves, the replies come from the solution. */
 async function attempt(engine: Engine, p: TacticPuzzle, elo: number): Promise<boolean> {
-  const start = new Chess(p.fen);
-  playUci(start, p.moves[0]);
-  const startFen = start.fen();
-  const line = p.moves.slice(1);
+  const startFen = puzzlePosition(p);
+  const { line } = puzzleSetup(p);
   const played: string[] = [];
   for (let i = 0; i < line.length; i += 2) {
     const mv = await chooseBotMove(engine, { startFen, moves: played, bot: customBot(elo) });
@@ -70,7 +69,9 @@ it.skipIf(!process.env.PUZZLE_RATE)('rate puzzles', { timeout: 24 * 3_600_000 },
     renameSync(RATINGS + '.tmp', RATINGS);
   };
   // Picks up puzzles the miner adds while this runs.
-  const pending = () => (JSON.parse(readFileSync(MINED, 'utf8')) as TacticPuzzle[]).filter((p) => !ratings[p.id]);
+  const read = (f: string): TacticPuzzle[] => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : []);
+  // Imported collections first: they are the bank's core.
+  const pending = () => [...read(REAL), ...read(MINED)].filter((p) => !ratings[p.id]);
   const claimed = new Set<string>();
   const worker = async () => {
     const engine = nodeEngine();

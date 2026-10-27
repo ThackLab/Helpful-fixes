@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Heart, Play, RotateCcw, Timer, X } from 'lucide-react';
 import { Board } from '../components/Board';
 import { useSolver } from '../components/useSolver';
-import type { TacticPuzzle } from '../lib/learn/puzzles';
+import { puzzleSetup, type TacticPuzzle } from '../lib/learn/puzzles';
 import { navigate } from '../lib/router';
 import { playSound } from '../lib/sound';
 import { useLearn } from '../state/learn';
@@ -37,7 +37,7 @@ export function RushPage() {
   const strikes = results.filter((r) => !r).length;
   const left = Math.max(0, endsAt - now);
 
-  const input = useMemo(() => (puzzle ? { fen: puzzle.fen, startMove: puzzle.moves[0], line: puzzle.moves.slice(1), strict: true } : null), [puzzle]);
+  const input = useMemo(() => (puzzle ? { ...puzzleSetup(puzzle), strict: true } : null), [puzzle]);
   const solver = useSolver(phase === 'running' ? input : null);
 
   const advance = (res: boolean[]) => {

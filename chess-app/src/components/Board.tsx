@@ -27,6 +27,8 @@ export interface BoardProps {
   viewOnly?: boolean;
   /** Called after a user move; promotion is resolved first. */
   onMove?: (from: string, to: string, promotion?: PromotionPiece) => void;
+  /** Called when a square is tapped (for "spot the pattern" exercises). */
+  onSelect?: (square: string) => void;
   /** Free editing (board editor). */
   free?: boolean;
   onChange?: (fen: string) => void;
@@ -107,7 +109,10 @@ export const Board = memo(
         draggable: { enabled: true, showGhost: true, deleteOnDropOff: !!p.free },
         selectable: { enabled: true },
         drawable: { enabled: true, visible: true, autoShapes: p.shapes ?? [] },
-        events: { change: () => propsRef.current.free && propsRef.current.onChange?.(cg.current!.getFen()) },
+        events: {
+          change: () => propsRef.current.free && propsRef.current.onChange?.(cg.current!.getFen()),
+          select: (key) => propsRef.current.onSelect?.(key),
+        },
       };
     };
 

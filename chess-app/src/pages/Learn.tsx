@@ -1,4 +1,4 @@
-import { Compass, Lock, Play, Trophy } from 'lucide-react';
+import { Check, Compass, Lock, Trophy } from 'lucide-react';
 import { findLesson } from '../lib/learn/curriculum';
 import {
   EXAM_PASS,
@@ -30,9 +30,7 @@ function LevelBlock({ level, index }: { level: Level; index: number }) {
   return (
     <section className={`level-block ${unlocked ? '' : 'locked'}`} id={level.id}>
       <div className="level-head">
-        <span className="level-badge" style={{ background: level.color }}>
-          {level.n}
-        </span>
+        <span className="level-badge">{level.n}</span>
         <div className="lh-body">
           <div className="lh-title">{level.name}</div>
           <div className="lh-sub">{level.goal}</div>
@@ -61,7 +59,9 @@ function LevelBlock({ level, index }: { level: Level; index: number }) {
               disabled={status === 'locked'}
               onClick={() => navigate(`/learn/${id}`)}
             >
-              <span className="pn-dot">{status === 'locked' ? <Lock size={16} /> : lesson.icon}</span>
+              <span className="pn-dot">
+                {status === 'locked' ? <Lock size={13} /> : status === 'done' ? <Check size={15} strokeWidth={2.5} /> : j + 1}
+              </span>
               <span className="pn-body">
                 <span className="pn-title">{lesson.title}</span>
                 <span className="pn-sub">{lesson.summary}</span>
@@ -119,9 +119,9 @@ export function LearnPage() {
         }
       />
 
-      <section className="course-hero" style={{ ['--lvl' as string]: level.color }}>
+      <section className="course-hero">
         <div className="ch-top">
-          <Ring value={prog.done / prog.total} size={68} color={level.color} label={`${prog.done}/${prog.total}`} />
+          <Ring value={prog.done / prog.total} size={64} stroke={2} label={`${prog.done}/${prog.total}`} />
           <div style={{ minWidth: 0 }}>
             <div className="ch-kicker">
               Level {level.n} of {LEVELS.length}
@@ -139,7 +139,6 @@ export function LearnPage() {
             className="btn primary big block"
             onClick={() => navigate(step.kind === 'lesson' ? `/learn/${step.lessonId}` : `/exam/${step.level.id}`)}
           >
-            <Play size={18} fill="currentColor" />
             {step.kind === 'lesson'
               ? `${learn.lessons[step.lessonId]?.step ? 'Continue' : 'Start'}: ${lesson?.title}`
               : `Take the Level ${level.n} exam`}
@@ -160,7 +159,7 @@ export function LearnPage() {
             {focus.count === 1 ? '' : 's'}.
           </p>
           <button className="btn primary small" onClick={() => navigate(`/learn/${focus.lesson.id}`)}>
-            {focus.lesson.icon} {focus.lesson.title}
+            {focus.lesson.title}
           </button>
         </div>
       )}

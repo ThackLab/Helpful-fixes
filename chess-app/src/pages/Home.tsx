@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flame, Play, Puzzle, SlidersHorizontal, Trophy } from 'lucide-react';
+import { Flame, GraduationCap, Puzzle, SlidersHorizontal, Trophy } from 'lucide-react';
 import { navigate } from '../lib/router';
-import { BOTS, findBot } from '../lib/bots/bots';
+import { BOTS, findBot, monogram } from '../lib/bots/bots';
 import { findLesson } from '../lib/learn/curriculum';
 import { LEVELS, levelProgress, nextStep } from '../lib/learn/levels';
 import { Logo, Segmented } from '../components/Widgets';
@@ -55,45 +55,37 @@ export function HomePage() {
         </span>
         <span className="spacer" />
         {streak > 0 && (
-          <span className="pill gold" title="Days in a row with some training">
-            <Flame size={14} /> {streak}
+          <span className="pill" title="Days in a row with some training">
+            <Flame size={13} /> {streak}
           </span>
         )}
         <a className="pill" href="#/you" title="Your rating against the bots">
-          <Trophy size={14} /> {profile.rating}
+          {profile.rating}
         </a>
       </header>
 
       {live?.status === 'playing' ? (
         <section className="resume-card">
-          <span className="avatar lg" style={{ background: findBot(live.botId)?.tint, width: 60, height: 60, fontSize: '2.2rem', borderRadius: 18 }}>
-            {findBot(live.botId)?.avatar}
-          </span>
+          <span className="avatar">{monogram(findBot(live.botId)?.name ?? 'Bot')}</span>
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span className="faint" style={{ fontSize: '0.8rem' }}>
-              Game in progress
-            </span>
-            <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>vs {findBot(live.botId)?.name ?? 'Bot'}</div>
+            <span className="kicker">Game in progress</span>
+            <div style={{ fontWeight: 500, fontSize: '1.1rem' }}>vs {findBot(live.botId)?.name ?? 'Bot'}</div>
           </span>
-          <button className="btn primary big" onClick={() => navigate('/game')}>
-            <Play size={18} fill="currentColor" /> Resume
+          <button className="btn primary" onClick={() => navigate('/game')}>
+            Resume
           </button>
         </section>
       ) : (
-        <section className="opponent-card" style={{ ['--tint' as string]: bot.tint }}>
+        <section className="opponent-card">
           <div className="opp-hero">
-            <span className="avatar lg" style={{ background: bot.tint }}>
-              {bot.avatar}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div className="opp-name">{bot.name}</div>
-              <div className="opp-meta">
-                <span className="pill">{bot.elo}</span>
-                {bot.id === suggested.id && <span className="pill accent">Your level</span>}
-                {bot.elo > suggested.elo + 150 && <span className="pill gold">Challenge</span>}
-              </div>
-              <div className="opp-tagline">{bot.tagline}</div>
+            <span className="avatar xl">{monogram(bot.name)}</span>
+            <div className="opp-name">{bot.name}</div>
+            <div className="opp-meta">
+              <span className="num">{bot.elo}</span>
+              {bot.id === suggested.id && <span>· your level</span>}
+              {bot.elo > suggested.elo + 150 && <span>· a challenge</span>}
             </div>
+            <div className="opp-tagline">{bot.tagline}</div>
           </div>
 
           <div className="opp-strip" ref={strip}>
@@ -104,9 +96,7 @@ export function HomePage() {
                 onClick={() => setSetup({ botId: b.id })}
                 aria-label={`${b.name}, ${b.elo}`}
               >
-                <span className="avatar" style={{ background: b.tint }}>
-                  {b.avatar}
-                </span>
+                <span className="avatar">{monogram(b.name)}</span>
                 <span className="elo">{b.elo}</span>
               </button>
             ))}
@@ -131,23 +121,23 @@ export function HomePage() {
 
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <button className="btn primary big play-go" onClick={() => startBotGame(setup)}>
-              <Play size={20} fill="currentColor" /> Play {bot.name}
+              Play
             </button>
             <button className="btn big" onClick={() => navigate('/play')} aria-label="More game options" title="More options">
-              <SlidersHorizontal size={20} />
+              <SlidersHorizontal size={18} />
             </button>
           </div>
         </section>
       )}
 
       <SectionTitle>Keep improving</SectionTitle>
-      <div style={{ display: 'grid', gap: 10 }}>
+      <div>
         <button
           className="continue-card"
           onClick={() => navigate(step.kind === 'lesson' ? `/learn/${step.lessonId}` : step.kind === 'exam' ? `/exam/${step.level.id}` : '/learn')}
         >
-          <span className="cc-ico" style={{ background: `${stepLevel.color}22`, color: stepLevel.color }}>
-            {step.kind === 'exam' ? <Trophy size={24} /> : (stepLesson?.icon ?? '🎓')}
+          <span className="cc-ico">
+            {step.kind === 'exam' ? <Trophy size={20} strokeWidth={1.5} /> : <GraduationCap size={20} strokeWidth={1.5} />}
           </span>
           <span className="cc-body">
             <span className="cc-kicker">
@@ -167,8 +157,8 @@ export function HomePage() {
           </span>
         </button>
         <button className="continue-card" onClick={() => navigate('/puzzles')}>
-          <span className="cc-ico ico-info">
-            <Puzzle size={24} />
+          <span className="cc-ico">
+            <Puzzle size={20} strokeWidth={1.5} />
           </span>
           <span className="cc-body">
             <span className="cc-kicker">Puzzles</span>

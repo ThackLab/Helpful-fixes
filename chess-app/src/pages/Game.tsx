@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { analyseLive, pauseLive } from '../state/liveAnalysis';
+import { monogram } from '../lib/bots/bots';
 import { ArrowUpDown, ChevronLeft, ChevronRight, Flag, Handshake, Lightbulb, Microscope, Plus, RotateCcw, Undo2 } from 'lucide-react';
 import type { DrawShape } from 'chessground/draw';
 import { Board, type BoardHandle, type PromotionPiece } from '../components/Board';
@@ -116,6 +118,13 @@ export function GamePage() {
     prevStatus.current = game.status;
   }, [game?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Review in the background while the game is played, so the review after it is quick.
+  useEffect(() => {
+    if (game?.status === 'playing' && settings.autoReview && settings.liveAnalysis) analyseLive(game.startFen, game.moves, settings.reviewDepth);
+    else pauseLive();
+  }, [game?.moves.length, game?.status, settings.autoReview, settings.liveAnalysis, settings.reviewDepth]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => pauseLive(), []);
+
   useEffect(() => {
     if (game?.status === 'over' && game.savedId && settings.autoReview && game.moves.length >= 2) {
       void useReviewer.getState().start(game.savedId);
@@ -206,8 +215,8 @@ export function GamePage() {
   const userName = settings.playerName || 'You';
   const playerFor = (c: 'w' | 'b') =>
     c === userColor
-      ? { avatar: '🙂', tint: '#81b64c', name: userName, elo: rating }
-      : { avatar: bot.avatar, tint: bot.tint, name: bot.name, elo: bot.elo };
+      ? { avatar: monogram(userName || 'You'), tint: undefined, name: userName, elo: rating }
+      : { avatar: monogram(bot.name), tint: undefined, name: bot.name, elo: bot.elo };
   const playing = game.status === 'playing';
   const userToMove = playing && chess.turn() === userColor;
 
@@ -398,7 +407,9 @@ export function GamePage() {
       {showEnd && game.status === 'over' && (
         <Modal onClose={() => setShowEnd(false)}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 46 }}>{userScore === 1 ? '🏆' : userScore === 0 ? bot.avatar : '🤝'}</div>
+            <div className="kicker" style={{ marginBottom: 6 }}>
+              Game over
+            </div>
             <h2 style={{ marginBottom: 4 }}>{endTitle}</h2>
             <div className="muted">{fromLabel(game.termination)}</div>
             {game.ratingDelta !== undefined && (

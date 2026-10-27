@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Dices, Play } from 'lucide-react';
-import { BOTS, findBot, type BotProfile } from '../lib/bots/bots';
+import { BOTS, findBot, monogram, type BotProfile } from '../lib/bots/bots';
 import { navigate } from '../lib/router';
 import { validateFen, START_FEN } from '../lib/chess/utils';
 import { useLiveGame } from '../state/game';
@@ -46,17 +46,13 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
           <div className="bot-grid">
             {BOTS.map((b) => (
               <button key={b.id} className={`bot-tile ${bot.id === b.id ? 'sel' : ''}`} onClick={() => setSetup({ botId: b.id })}>
-                <div className="avatar" style={{ background: b.tint }}>
-                  {b.avatar}
-                </div>
+                <div className="avatar">{monogram(b.name)}</div>
                 <div className="nm">{b.name}</div>
                 <div className="elo">{b.id === suggested.id ? 'your level' : b.elo}</div>
               </button>
             ))}
             <button className={`bot-tile ${setup.botId.startsWith('custom') ? 'sel' : ''}`} onClick={() => setSetup({ botId: 'custom' })}>
-              <div className="avatar" style={{ background: '#ffab91' }}>
-                🎯
-              </div>
+              <div className="avatar">#</div>
               <div className="nm">Custom</div>
               <div className="elo">any Elo</div>
             </button>
@@ -65,9 +61,7 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
 
         <aside className="card">
           <div className="row" style={{ alignItems: 'center', flexWrap: 'nowrap', gap: 14 }}>
-            <div className="avatar lg" style={{ background: bot.tint, width: 72, height: 72, fontSize: '2.7rem', borderRadius: 20 }}>
-              {bot.avatar}
-            </div>
+            <div className="avatar lg">{monogram(bot.name)}</div>
             <div style={{ minWidth: 0 }}>
               <h2 style={{ marginBottom: 4 }}>{bot.name}</h2>
               <span className="pill">{bot.elo} Elo</span>

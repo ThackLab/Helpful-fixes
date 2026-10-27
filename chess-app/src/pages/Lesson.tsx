@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Lightbulb, RotateCcw, Trophy, X } from 'luci
 import { Board, type PromotionPiece } from '../components/Board';
 import { useSolver } from '../components/useSolver';
 import { findLesson, type DrillStep, type LessonStep, type PuzzleStep, type QuizStep } from '../lib/learn/curriculum';
-import { explainPuzzle, type TacticPuzzle } from '../lib/learn/puzzles';
+import { explainPuzzle, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
 import { levelOfLesson, starsFor } from '../lib/learn/levels';
 import { getAnalysisEngine } from '../lib/engine/manager';
 import { legalDests, moveToUci, playUci, sanLine } from '../lib/chess/utils';
@@ -41,7 +41,15 @@ function useRevealInPanel<T extends HTMLElement>(dep: unknown) {
   return ref;
 }
 
-const STEP_LABEL: Record<LessonStep['kind'], string> = { info: 'Idea', walk: 'Example', puzzle: 'Your move', drill: 'Drill', quiz: 'Question' };
+const STEP_LABEL: Record<LessonStep['kind'], string> = {
+  info: 'Idea',
+  walk: 'Example',
+  puzzle: 'Your move',
+  drill: 'Drill',
+  quiz: 'Question',
+  pattern: 'The pattern',
+  tap: 'Spot it',
+};
 const PRACTICE_SIZE = 5;
 
 export function LessonPage({ id }: { id: string }) {
@@ -55,6 +63,8 @@ export function LessonPage({ id }: { id: string }) {
   const [idx, setIdx] = useState(0);
   const [walkPly, setWalkPly] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
+  /** Spot-it steps: the square tapped last, whether the right one has been found, and how many misses. */
+  const [tap, setTap] = useState<{ square: string | null; right: boolean; misses: number }>({ square: null, right: false, misses: 0 });
   /** Score (0..1) of each graded step, by step index; practice puzzles follow the steps. */
   const [scores, setScores] = useState<Record<number, number>>({});
   const [result, setResult] = useState<{ score: number; stars: number; improved: boolean } | null>(null);
@@ -81,7 +91,7 @@ export function LessonPage({ id }: { id: string }) {
       puzzle
         ? { fen: puzzle.fen, line: puzzle.line, alts: puzzle.alts, anyMate: puzzle.anyMate, hint: puzzle.hint }
         : practicePuzzle
-          ? { fen: practicePuzzle.fen, startMove: practicePuzzle.moves[0], line: practicePuzzle.moves.slice(1) }
+          ? puzzleSetup(practicePuzzle)
           : null,
     [puzzle, practicePuzzle],
   );
@@ -93,6 +103,7 @@ export function LessonPage({ id }: { id: string }) {
   useEffect(() => {
     setWalkPly(0);
     setPicked(null);
+    setTap({ square: null, right: false, misses: 0 });
     if (lesson && idx < steps.length) reach(lesson.id, idx);
   }, [idx, lesson, steps.length, reach]);
 
@@ -143,11 +154,14 @@ export function LessonPage({ id }: { id: string }) {
   const nextLesson = nextId ? findLesson(nextId) : undefined;
   const walk = step?.kind === 'walk' ? step : null;
   const quiz = step?.kind === 'quiz' ? step : null;
+  const tapStep = step?.kind === 'tap' ? step : null;
   const pickedOption = quiz && picked !== null ? quiz.options[picked] : null;
   const solverDone = solver.state === 'solved' || solver.state === 'revealed';
   const canAdvance =
     (!step && !practicePuzzle) ||
     step?.kind === 'info' ||
+    step?.kind === 'pattern' ||
+    (tapStep && tap.right) ||
     (walk && walkPly >= walk.moves.length) ||
     (puzzle && solverDone) ||
     (practicePuzzle && (solverDone || idx in scores)) ||
@@ -179,6 +193,13 @@ export function LessonPage({ id }: { id: string }) {
     setPractice(null);
     setIdx(0);
   };
+  const onTap = (square: string) => {
+    if (!tapStep || tap.right) return;
+    const right = tapStep.answers.includes(square);
+    setTap({ square, right, misses: tap.misses + (right ? 0 : 1) });
+    playSound(right ? 'correct' : 'wrong');
+    if (right) grade(idx, tap.misses ? 0.4 : 1);
+  };
   const onPick = (i: number) => {
     if (!quiz) return;
     setPicked(i);
@@ -189,7 +210,13 @@ export function LessonPage({ id }: { id: string }) {
   // ---- board for the current step
   const lastFen = steps[Math.min(idx, steps.length - 1)]?.fen;
   let board: { fen: string; lastMove?: [string, string]; shapes?: DrawShape[]; highlights?: Map<string, string>; check?: boolean } = { fen: lastFen };
-  if (step?.kind === 'info') board = { fen: step.fen, shapes: arrowShapes(step.arrows), highlights: markMap(step.marks) };
+  if (step?.kind === 'info' || step?.kind === 'pattern') board = { fen: step.fen, shapes: arrowShapes(step.arrows), highlights: markMap(step.marks) };
+  if (tapStep)
+    board = {
+      fen: tapStep.fen,
+      shapes: tap.right ? arrowShapes(tapStep.arrows) : undefined,
+      highlights: tap.square ? new Map([[tap.square, tap.right ? 'hl-right' : 'hl-wrong']]) : undefined,
+    };
   if (walk) {
     const c = new Chess(walk.fen);
     for (const m of walk.moves.slice(0, walkPly)) playUci(c, m.uci);
@@ -213,9 +240,7 @@ export function LessonPage({ id }: { id: string }) {
           <button className="icon-btn" onClick={() => navigate('/learn')} aria-label="Close">
             <X size={22} />
           </button>
-          <b>
-            {lesson.icon} {lesson.title}
-          </b>
+          <b>{lesson.title}</b>
           <span className="spacer" />
           <span className="faint num">{finished ? '' : `${Math.min(idx + 1, total)} / ${total}`}</span>
         </div>
@@ -246,7 +271,8 @@ export function LessonPage({ id }: { id: string }) {
               movableColor={interactive && solver.state === 'solve' && solver.solver ? (solver.solver === 'w' ? 'white' : 'black') : undefined}
               dests={interactive ? solver.dests : undefined}
               onMove={interactive ? solver.onMove : undefined}
-              viewOnly={!interactive}
+              onSelect={tapStep ? onTap : undefined}
+              viewOnly={!interactive && !tapStep}
             />
           ) : (
             <div className="board-placeholder" />
@@ -285,6 +311,36 @@ export function LessonPage({ id }: { id: string }) {
             </div>
           ) : step?.kind === 'info' ? (
             <StepCard step={step} label={STEP_LABEL.info} text={step.text} />
+          ) : step?.kind === 'pattern' ? (
+            <div className="coach-card pattern" key={step.title}>
+              <span className="coach-step">{STEP_LABEL.pattern}</span>
+              <h3 className="coach-title">{step.title}</h3>
+              <dl>
+                <div>
+                  <dt>What it is</dt>
+                  <dd>{step.what}</dd>
+                </div>
+                <div>
+                  <dt>What to look for</dt>
+                  <dd>{step.cue}</dd>
+                </div>
+                <div>
+                  <dt>How to set it up</dt>
+                  <dd>{step.setup}</dd>
+                </div>
+                <div>
+                  <dt>How to defend</dt>
+                  <dd>{step.defend}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : tapStep ? (
+            <div className={`coach-card ${tap.right ? 'good' : tap.square ? 'bad' : ''}`} key={tapStep.title}>
+              <span className="coach-step">{STEP_LABEL.tap}</span>
+              <h3 className="coach-title">{tap.right ? 'Yes' : tap.square ? 'Not that one' : tapStep.title}</h3>
+              <p className="coach-text">{tap.right ? tapStep.success : tapStep.text}</p>
+              {!tap.right && <p className="coach-line">Tap a square on the board.</p>}
+            </div>
           ) : walk ? (
             <StepCard step={walk} label={STEP_LABEL.walk} text={walkPly === 0 ? walk.text : walk.moves[walkPly - 1].text}>
               <p className="coach-line">
@@ -506,11 +562,17 @@ function PracticeCard({ puzzle, solver, n, of, graded }: { puzzle: TacticPuzzle;
       <h3 className="coach-title">{done ? (solver.state === 'solved' ? (solver.failed ? 'Solved' : 'Correct!') : 'Solution') : `${side} to move`}</h3>
       {!done && solver.state !== 'wrong' && (
         <p className="coach-text">
-          {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(puzzle.fen, [puzzle.moves[0]])[0]}</b>. Use what you just learned.
+          {puzzle.noPrev ? (
+            'Find the best move. Use what you just learned.'
+          ) : (
+            <>
+              {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(puzzle.fen, [puzzle.moves[0]])[0]}</b>. Use what you just learned.
+            </>
+          )}
         </p>
       )}
       <SolverFeedback solver={solver} success={explainPuzzle(puzzle)} showResult={false} />
-      {done && <p className="coach-line">{sanLine(puzzle.fen, puzzle.moves).slice(1).join(' ')}</p>}
+      {done && <p className="coach-line">{solutionSan(puzzle)}</p>}
     </div>
   );
 }

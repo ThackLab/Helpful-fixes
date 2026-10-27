@@ -49,6 +49,11 @@ export function getBotEngine(): Engine {
   return botEngine;
 }
 
+/** A single-threaded engine for background work. */
+export function createSingleEngine(hash = 32): Engine {
+  return createEngine({ hash });
+}
+
 /** A pool of single-threaded engines for batch work such as full-game review. */
 export class EnginePool {
   readonly engines: Engine[];

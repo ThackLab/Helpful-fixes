@@ -2,43 +2,51 @@
 // their bot ratings: only rated puzzles, near-duplicates dropped, and plain
 // "take the free piece" puzzles capped so the bank isn't dominated by them.
 // Run with: PUZZLE_BANK=1 npx vitest run src/test/puzzleBank.test.ts --silent=false
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { Chess } from 'chess.js';
 import { it } from 'vitest';
-import type { TacticPuzzle } from '../lib/learn/puzzles';
-import { playUci } from '../lib/chess/utils';
+import { puzzlePosition, type TacticPuzzle } from '../lib/learn/puzzles';
 import { RATINGS } from './puzzleRate.test';
 
 const MINED = fileURLToPath(new URL('../../data/puzzles-mined.json', import.meta.url));
+const REAL = fileURLToPath(new URL('../../data/puzzles-real.json', import.meta.url));
 const OUT = fileURLToPath(new URL('../../public/puzzles.json', import.meta.url));
 /** Most plain free-piece puzzles kept, per 100 rating points. */
 const PLAIN_PER_BAND = 40;
 
 it.skipIf(!process.env.PUZZLE_BANK)('build the puzzle bank', () => {
-  const mined: TacticPuzzle[] = JSON.parse(readFileSync(MINED, 'utf8'));
+  // Puzzles from classic collections and real games come first; mined ones fill in.
+  const real: TacticPuzzle[] = existsSync(REAL) ? JSON.parse(readFileSync(REAL, 'utf8')) : [];
+  const mined: TacticPuzzle[] = [...real, ...JSON.parse(readFileSync(MINED, 'utf8'))];
   const ratings: Record<string, { rating: number }> = JSON.parse(readFileSync(RATINGS, 'utf8'));
   const seen = new Set<string>();
   const plainPerBand = new Map<number, number>();
   const out: TacticPuzzle[] = [];
   // Rich puzzles first, so the cap only ever drops plain ones.
   const plain = (p: TacticPuzzle) => p.themes.every((t) => t === 'hanging');
-  for (const p of [...mined].sort((a, b) => Number(plain(a)) - Number(plain(b)) || Math.random() - 0.5)) {
+  const rank = (p: TacticPuzzle) => (p.source ? 0 : plain(p) ? 2 : 1);
+  for (const p of [...mined].sort((a, b) => rank(a) - rank(b) || Math.random() - 0.5)) {
     const r = ratings[p.id];
     if (!r) continue;
     // One puzzle per position after the mistake.
-    const c = new Chess(p.fen);
-    playUci(c, p.moves[0]);
-    const key = c.fen().split(' ').slice(0, 4).join(' ');
+    const key = puzzlePosition(p).split(' ').slice(0, 4).join(' ');
     if (seen.has(key)) continue;
     seen.add(key);
-    if (plain(p)) {
+    if (plain(p) && !p.source) {
       const band = Math.floor(r.rating / 100);
       const n = plainPerBand.get(band) ?? 0;
       if (n >= PLAIN_PER_BAND) continue;
       plainPerBand.set(band, n + 1);
     }
-    out.push({ id: p.id, fen: p.fen, moves: p.moves, themes: p.themes, rating: r.rating });
+    out.push({
+      id: p.id,
+      fen: p.fen,
+      moves: p.moves,
+      themes: p.themes,
+      rating: r.rating,
+      ...(p.noPrev ? { noPrev: true } : {}),
+      ...(p.source ? { source: p.source } : {}),
+    });
   }
   out.sort((a, b) => a.rating - b.rating);
   writeFileSync(OUT, JSON.stringify(out));

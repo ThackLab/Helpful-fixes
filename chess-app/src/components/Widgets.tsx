@@ -10,14 +10,8 @@ const ROLE: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: '
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>
-      <rect width="64" height="64" rx="14" fill="#81b64c" />
-      <path
-        fill="#fff"
-        d="M22 50h20l-2-6H24zm3-8h14l-2-12 4-4-3-8h-4l-1 3h-2l-1-3h-4l-3 8 4 4z"
-        stroke="#3e6e2c"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
+      <rect width="64" height="64" rx="16" fill="#fff" />
+      <path fill="#000" d="M22 50h20l-2-6H24zm3-8h14l-2-12 4-4-3-8h-4l-1 3h-2l-1-3h-4l-3 8 4 4z" />
     </svg>
   );
 }

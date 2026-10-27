@@ -3,6 +3,7 @@ import { BookOpen, ChessKnight, Download, GraduationCap, History, Microscope, Pu
 import { Logo } from './components/Widgets';
 import { navigate, useRoute } from './lib/router';
 import { loadOpeningBook } from './lib/chess/openings';
+import { pruneEvals } from './lib/review/evalCache';
 import { useLiveGame } from './state/game';
 import { HomePage } from './pages/Home';
 import { PlayPage } from './pages/Play';
@@ -62,6 +63,8 @@ export function App() {
   const live = useLiveGame((s) => s.game);
   useEffect(() => {
     void loadOpeningBook();
+    // Old background evaluations are only kept for a month.
+    setTimeout(() => void pruneEvals(), 5000);
   }, []);
 
   let page: ReactNode;

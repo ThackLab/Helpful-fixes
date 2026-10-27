@@ -58,7 +58,37 @@ export interface QuizStep {
   options: { label: string; uci?: string; correct?: boolean; why: string; arrows?: string[] }[];
 }
 
-export type LessonStep = InfoStep | WalkStep | PuzzleStep | DrillStep | QuizStep;
+/** The tactic in four parts, shown at the start of a tactics lesson. */
+export interface PatternStep {
+  kind: 'pattern';
+  title: string;
+  fen: string;
+  arrows?: string[];
+  marks?: string[];
+  /** What it is. */
+  what: string;
+  /** What to look for on the board. */
+  cue: string;
+  /** How to make it happen. */
+  setup: string;
+  /** How to stop it being done to you. */
+  defend: string;
+}
+
+/** Spot the pattern: tap the right square (the fork square, the pinned piece...). */
+export interface TapStep {
+  kind: 'tap';
+  title: string;
+  text: string;
+  fen: string;
+  /** Squares that count as right. */
+  answers: string[];
+  success: string;
+  /** Shown once it is solved. */
+  arrows?: string[];
+}
+
+export type LessonStep = InfoStep | WalkStep | PuzzleStep | DrillStep | QuizStep | PatternStep | TapStep;
 
 export interface Lesson {
   id: string;

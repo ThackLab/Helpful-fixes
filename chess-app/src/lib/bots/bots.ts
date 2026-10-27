@@ -195,6 +195,12 @@ export const BOTS: BotProfile[] = [
   },
 ];
 
+/** One or two letters standing in for a player in the minimal UI ("Pip" -> "P", "GM Atlas" -> "A", "Stockfish 18" -> "S"). */
+export function monogram(name: string): string {
+  const words = name.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !['The', 'GM', 'IM', 'FM'].includes(w));
+  return (words[0] ?? name)[0]?.toUpperCase() ?? '?';
+}
+
 export function customBot(elo: number): BotProfile {
   return {
     id: `custom-${elo}`,
