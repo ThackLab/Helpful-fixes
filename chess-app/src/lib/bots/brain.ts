@@ -9,7 +9,7 @@
 // look, plus some of Stockfish's deep evaluation at higher ratings, and now
 // and then plays one without checking the reply. When clearly winning it
 // only sometimes plays the engine's move, so low-rated bots don't convert
-// like machines. From 1500 up we use Stockfish's calibrated UCI_Elo limiter.
+// like machines. From 1500 up we use Stockfish's UCI_Elo limiter.
 import { Chess, type Square } from 'chess.js';
 import type { Engine } from '../engine/engine';
 import { scoreToCp, type Score } from '../engine/uci';
@@ -53,6 +53,17 @@ export interface StrengthParams {
 
 export const STOCKFISH_MIN_ELO = 1500;
 export const STOCKFISH_MAX_ELO = 3190;
+
+/**
+ * The UCI_Elo that plays at a given app rating. Stockfish's scale is
+ * calibrated against engines at long time controls; at the app's speed its
+ * low settings play weaker than labelled (head-to-head, the 1450 human-model
+ * bot beat UCI_Elo 1500 and 1600 about 70% of the time), so the low end is
+ * lifted, fading out by 2300.
+ */
+export function stockfishEloFor(elo: number): number {
+  return Math.min(STOCKFISH_MAX_ELO, Math.round(elo + 230 * Math.max(0, (2300 - elo) / 800)));
+}
 
 /**
  * Human-model settings at anchor ratings, interpolated in between. Columns:
@@ -190,7 +201,7 @@ export async function chooseBotMove(engine: Engine, ctx: BotMoveContext): Promis
       ...base,
       limits: { movetime: params.movetime },
       multipv: 1,
-      options: params.mode === 'full' ? { UCI_LimitStrength: false } : { UCI_LimitStrength: true, UCI_Elo: Math.min(STOCKFISH_MAX_ELO, ctx.bot.elo) },
+      options: params.mode === 'full' ? { UCI_LimitStrength: false } : { UCI_LimitStrength: true, UCI_Elo: stockfishEloFor(ctx.bot.elo) },
     });
     const uci = res.bestmove ?? moveToUci(legal[0]);
     return { uci, san: sanOf(uci), source: 'engine', score: res.lines[0]?.score };
