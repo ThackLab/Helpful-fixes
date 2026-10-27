@@ -37,13 +37,14 @@ describe('curriculum', () => {
         const where = `${lesson.id} / ${step.title}`;
         const chess = new Chess(step.fen);
         expect(otherSideInCheck(step.fen), `${where}: side not to move is in check`).toBe(false);
-        if (step.kind === 'info') {
+        if (step.kind === 'info' || step.kind === 'pattern' || step.kind === 'tap') {
           for (const a of step.arrows ?? []) {
             const sq = a.replace(/^[rby]:/, '');
             expect(SQUARE.test(sq.slice(0, 2)) && SQUARE.test(sq.slice(2, 4)), `${where}: arrow ${a}`).toBe(true);
           }
-          for (const m of step.marks ?? []) expect(SQUARE.test(m), `${where}: mark ${m}`).toBe(true);
+          for (const m of step.kind === 'tap' ? step.answers : (step.marks ?? [])) expect(SQUARE.test(m), `${where}: square ${m}`).toBe(true);
         }
+        if (step.kind === 'tap') expect(step.answers.length, `${where}: no answer`).toBeGreaterThan(0);
         for (const uci of linesOf(step)) expect(playUci(chess, uci), `${where}: illegal ${uci} in ${chess.fen()}`).toBeTruthy();
         if (step.kind === 'quiz') {
           expect(

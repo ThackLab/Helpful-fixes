@@ -2,6 +2,7 @@
 // against Stockfish by src/test/curriculum.test.ts.
 import type { PuzzleTheme } from './tags';
 import { EXTRA_LESSONS } from './lessons2';
+import { withPatterns } from './patterns';
 
 /** Arrows are UCI-style square pairs, optionally prefixed with a brush: "r:" red, "b:" blue, "y:" yellow (default green). */
 export interface InfoStep {
@@ -907,7 +908,7 @@ const BASE_LESSONS: Lesson[] = [
   },
 ];
 
-export const LESSONS: Lesson[] = [...BASE_LESSONS, ...EXTRA_LESSONS];
+export const LESSONS: Lesson[] = [...BASE_LESSONS, ...EXTRA_LESSONS].map(withPatterns);
 
 export const LESSON_GROUPS: Lesson['group'][] = ['Basics', 'Tactics', 'Checkmate patterns', 'Openings', 'Endgames'];
 
