@@ -168,7 +168,8 @@ export const useLearn = create<LearnState>()(
       version: 2,
       migrate: (old, version) => {
         const o = (old ?? {}) as Partial<LearnState>;
-        if (version < 2) return { ...fresh, ...o, ratingHistory: [], solved: 0, exams: {}, placementDone: false } as unknown as LearnState;
+        // Version 2 rates puzzles on a new (bot-measured) scale, so the old puzzle rating starts over.
+        if (version < 2) return { ...fresh, lessons: o.lessons ?? {}, themes: o.themes ?? {}, recent: o.recent ?? [] } as unknown as LearnState;
         return o as LearnState;
       },
     },
