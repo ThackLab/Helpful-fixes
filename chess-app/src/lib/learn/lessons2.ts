@@ -127,7 +127,7 @@ export const EXTRA_LESSONS: Lesson[] = [
         kind: 'puzzle',
         title: 'Take the attacker',
         text: 'Black’s bishop attacks your knight. Before moving the knight, look: can you take the attacker instead?',
-        fen: '4r1k1/5pp1/7p/8/6b1/5N1P/5PP1/3Q2K1 w - - 0 1',
+        fen: '1r4k1/5pp1/7p/8/6b1/5N1P/5PP1/3Q2K1 w - - 0 1',
         line: ['h3g4'],
         hint: 'Which of your pawns attacks g4?',
         success: 'hxg4 wins the bishop. The best defence is often to capture the attacker, especially when it is undefended.',
