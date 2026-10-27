@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Flag, Handshake, Lightbulb, Microscope, Plus, RotateCcw, Undo2 } from 'lucide-react';
 import type { DrawShape } from 'chessground/draw';
 import { Board, type BoardHandle, type PromotionPiece } from '../components/Board';
 import { EvalBar, Modal, PlayerBar, formatClock, toast } from '../components/Widgets';
@@ -191,7 +192,7 @@ export function GamePage() {
     return (
       <div className="page empty">
         <h2>No game in progress</h2>
-        <button className="btn primary big" onClick={() => navigate('/play')}>
+        <button className="btn primary big" onClick={() => navigate('/')}>
           Choose a bot
         </button>
       </div>
@@ -309,50 +310,70 @@ export function GamePage() {
         )}
         <div className="play-controls">
           <button className="ctl" onClick={back} aria-label="Previous move">
-            <span className="ctl-ico">◀</span>
+            <span className="ctl-ico">
+              <ChevronLeft size={20} />
+            </span>
           </button>
           <button className="ctl" onClick={forward} aria-label="Next move">
-            <span className="ctl-ico">▶</span>
+            <span className="ctl-ico">
+              <ChevronRight size={20} />
+            </span>
           </button>
           <button className="ctl" onClick={() => setFlipped((f) => !f)} aria-label="Flip board">
-            <span className="ctl-ico">⇅</span>
+            <span className="ctl-ico">
+              <ArrowUpDown size={20} />
+            </span>
             <span className="ctl-label">Flip</span>
           </button>
           {playing ? (
             <>
               {game.options.hints && (
                 <button className="ctl" onClick={askHint} disabled={!userToMove}>
-                  <span className="ctl-ico">💡</span>
+                  <span className="ctl-ico">
+                    <Lightbulb size={20} />
+                  </span>
                   <span className="ctl-label">Hint</span>
                 </button>
               )}
               {game.options.takebacks && (
                 <button className="ctl" onClick={() => (store.getState().takeback(), setHint(null))} disabled={game.moves.length === 0}>
-                  <span className="ctl-ico">↶</span>
+                  <span className="ctl-ico">
+                    <Undo2 size={20} />
+                  </span>
                   <span className="ctl-label">Undo</span>
                 </button>
               )}
               <button className="ctl" onClick={offerDraw} disabled={game.moves.length < 2}>
-                <span className="ctl-ico">½</span>
+                <span className="ctl-ico">
+                  <Handshake size={20} />
+                </span>
                 <span className="ctl-label">Draw</span>
               </button>
               <button className="ctl danger" onClick={() => setConfirmResign(true)}>
-                <span className="ctl-ico">⚑</span>
+                <span className="ctl-ico">
+                  <Flag size={20} />
+                </span>
                 <span className="ctl-label">Resign</span>
               </button>
             </>
           ) : (
             <>
               <button className="ctl" onClick={() => reviewId && navigate(`/analysis?game=${reviewId}`)} disabled={!reviewId}>
-                <span className="ctl-ico">🔬</span>
+                <span className="ctl-ico">
+                  <Microscope size={20} />
+                </span>
                 <span className="ctl-label">Analyse</span>
               </button>
               <button className="ctl" onClick={rematch}>
-                <span className="ctl-ico">↻</span>
+                <span className="ctl-ico">
+                  <RotateCcw size={20} />
+                </span>
                 <span className="ctl-label">Rematch</span>
               </button>
-              <button className="ctl" onClick={() => navigate('/play')}>
-                <span className="ctl-ico">＋</span>
+              <button className="ctl" onClick={() => navigate('/')}>
+                <span className="ctl-ico">
+                  <Plus size={20} />
+                </span>
                 <span className="ctl-label">New</span>
               </button>
             </>
@@ -408,7 +429,7 @@ export function GamePage() {
                 <button className="btn" onClick={rematch}>
                   Rematch
                 </button>
-                <button className="btn" onClick={() => navigate('/play')}>
+                <button className="btn" onClick={() => navigate('/')}>
                   New bot
                 </button>
                 <button className="btn ghost" onClick={() => setShowEnd(false)}>

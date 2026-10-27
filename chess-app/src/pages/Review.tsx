@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Gauge, Microscope, SkipForward, X } from 'lucide-react';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
@@ -671,45 +672,65 @@ export function ReviewPage({ gameId }: { gameId: string }) {
           {guided ? (
             <>
               <button className="ctl" onClick={exitGuided}>
-                <span className="ctl-ico">✕</span>
+                <span className="ctl-ico">
+                  <X size={20} />
+                </span>
                 <span className="ctl-label">Exit lesson</span>
               </button>
               <button className="ctl" onClick={() => guidedStep(guided.idx - 1)} disabled={guided.idx === 0 || guided.done}>
-                <span className="ctl-ico">◀</span>
+                <span className="ctl-ico">
+                  <ChevronLeft size={20} />
+                </span>
                 <span className="ctl-label">Previous</span>
               </button>
               <button className="ctl" onClick={() => guidedStep(guided.idx + 1)} disabled={guided.done}>
-                <span className="ctl-ico">▶</span>
+                <span className="ctl-ico">
+                  <ChevronRight size={20} />
+                </span>
                 <span className="ctl-label">Skip</span>
               </button>
               <button className="ctl" onClick={() => setFlipped((f) => !f)}>
-                <span className="ctl-ico">⇅</span>
+                <span className="ctl-ico">
+                  <ArrowUpDown size={20} />
+                </span>
                 <span className="ctl-label">Flip</span>
               </button>
             </>
           ) : (
             <>
               <button className="ctl only-mobile" onClick={() => (window.history.length > 1 ? window.history.back() : navigate('/games'))}>
-                <span className="ctl-ico">✕</span>
+                <span className="ctl-ico">
+                  <X size={20} />
+                </span>
                 <span className="ctl-label">Close</span>
               </button>
               <button className="ctl" onClick={() => go(cur - 1)} disabled={!review || cur < 0}>
-                <span className="ctl-ico">◀</span>
+                <span className="ctl-ico">
+                  <ChevronLeft size={20} />
+                </span>
               </button>
               <button className="ctl wide" onClick={() => go(cur + 1)} disabled={!review || cur >= moves.length - 1}>
-                <span className="ctl-ico">▶</span>
+                <span className="ctl-ico">
+                  <ChevronRight size={20} />
+                </span>
                 <span className="ctl-label">{cur === -1 ? 'Start' : 'Next'}</span>
               </button>
               <button className="ctl" onClick={() => nextMistake !== null && go(nextMistake)} disabled={nextMistake === null}>
-                <span className="ctl-ico">⏭</span>
+                <span className="ctl-ico">
+                  <SkipForward size={20} />
+                </span>
                 <span className="ctl-label">Mistake</span>
               </button>
               <button className="ctl" onClick={() => setFlipped((f) => !f)}>
-                <span className="ctl-ico">⇅</span>
+                <span className="ctl-ico">
+                  <ArrowUpDown size={20} />
+                </span>
                 <span className="ctl-label">Flip</span>
               </button>
               <button className="ctl" onClick={() => navigate(`/analysis?game=${gameId}${cur >= 0 ? `&ply=${cur + 1}` : ''}`)}>
-                <span className="ctl-ico">🔬</span>
+                <span className="ctl-ico">
+                  <Microscope size={20} />
+                </span>
                 <span className="ctl-label">Analyse</span>
               </button>
               {review && !running && review.depth < 20 && (
@@ -718,7 +739,9 @@ export function ReviewPage({ gameId }: { gameId: string }) {
                   onClick={() => void useReviewer.getState().start(gameId, { depth: 20, force: true })}
                   title="Run a deeper review"
                 >
-                  <span className="ctl-ico">⤓</span>
+                  <span className="ctl-ico">
+                    <Gauge size={20} />
+                  </span>
                   <span className="ctl-label">Deeper</span>
                 </button>
               )}

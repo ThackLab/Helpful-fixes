@@ -177,7 +177,7 @@ export function PracticePage() {
           {total === 0 ? (
             <>
               <p>No practice positions yet. Play and review a few games - your mistakes will show up here.</p>
-              <button className="btn primary" onClick={() => navigate('/play')}>
+              <button className="btn primary" onClick={() => navigate('/')}>
                 Play a bot
               </button>
             </>

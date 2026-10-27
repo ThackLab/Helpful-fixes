@@ -79,7 +79,7 @@ export function ExamPage({ levelId }: { levelId: string }) {
           break;
         }
       }
-      learn.place(placedAt, 500 + placedAt * 300);
+      learn.place(placedAt, 450 + placedAt * 250);
       setOutcome({ correct: res.filter(Boolean).length, total: res.length, placedAt });
     } else if (level) {
       const correct = res.filter(Boolean).length;

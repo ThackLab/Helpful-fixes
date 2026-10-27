@@ -61,7 +61,7 @@ const fresh = {
   lessons: {},
   exams: {},
   placementDone: false,
-  rating: 800,
+  rating: 600,
   ratingHistory: [],
   attempts: 0,
   solved: 0,

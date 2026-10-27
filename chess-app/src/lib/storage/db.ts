@@ -146,10 +146,13 @@ export interface Backup {
   reviews: [string, GameReview][];
   puzzles: Puzzle[];
   profile: unknown;
+  /** Course and puzzle-trainer progress (newer backups only). */
+  learn?: unknown;
 }
 
-export async function exportAll(profile: unknown): Promise<Backup> {
+export async function exportAll(profile: unknown, learn?: unknown): Promise<Backup> {
   return {
+    learn,
     app: 'outpost-chess',
     version: 1,
     exportedAt: Date.now(),

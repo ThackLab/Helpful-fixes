@@ -14,7 +14,7 @@ export interface Level {
   lessons: string[];
   /** Puzzle themes the practice sets and the exam draw from. */
   examThemes: PuzzleTheme[];
-  /** Puzzle rating range for the exam. */
+  /** Puzzle rating range for practice and the exam (ratings measured by the bots, see puzzleRate.test.ts). */
   band: [number, number];
 }
 
@@ -27,7 +27,7 @@ export const LEVELS: Level[] = [
     color: '#7cb342',
     lessons: ['values', 'loose-pieces', 'defend', 'cct', 'back-rank'],
     examThemes: ['hanging', 'mateIn1', 'backRankMate'],
-    band: [300, 900],
+    band: [100, 700],
   },
   {
     id: 'l2',
@@ -37,7 +37,7 @@ export const LEVELS: Level[] = [
     color: '#58a6e8',
     lessons: ['forks', 'pins', 'skewers', 'opening-principles', 'queen-mate'],
     examThemes: ['fork', 'pin', 'skewer', 'mateIn1'],
-    band: [600, 1250],
+    band: [300, 1000],
   },
   {
     id: 'l3',
@@ -47,7 +47,7 @@ export const LEVELS: Level[] = [
     color: '#a78bfa',
     lessons: ['discovered', 'remove-defender', 'fork-setups', 'smothered', 'rook-mate'],
     examThemes: ['discovered', 'doubleCheck', 'removeDefender', 'setup', 'fork', 'mateIn2'],
-    band: [900, 1550],
+    band: [500, 1300],
   },
   {
     id: 'l4',
@@ -57,7 +57,7 @@ export const LEVELS: Level[] = [
     color: '#f4b740',
     lessons: ['overloading', 'deflection', 'promotion', 'mating-nets', 'opposition'],
     examThemes: ['sacrifice', 'setup', 'removeDefender', 'promotion', 'mateIn2', 'mateIn3'],
-    band: [1200, 1850],
+    band: [700, 1600],
   },
   {
     id: 'l5',
@@ -67,7 +67,7 @@ export const LEVELS: Level[] = [
     color: '#ef5d4b',
     lessons: ['king-attack', 'calculation'],
     examThemes: ['sacrifice', 'mateIn3', 'setup', 'doubleCheck', 'discovered', 'mateIn2'],
-    band: [1500, 2500],
+    band: [900, 2200],
   },
 ];
 

@@ -13,7 +13,7 @@ const LIVES = 3;
 
 /** The next puzzle of a run: each one a little harder than the last. */
 function rushPuzzle(all: TacticPuzzle[], index: number, used: Set<string>): TacticPuzzle | null {
-  const target = Math.min(2400, 450 + index * 65);
+  const target = Math.min(2000, 200 + index * 45);
   for (const width of [100, 200, 400, 2000]) {
     const pool = all.filter((p) => !used.has(p.id) && Math.abs(p.rating - target) <= width);
     if (pool.length) return pool[Math.floor(Math.random() * pool.length)];

@@ -5,7 +5,8 @@
 // plausible mistake - one of the engine's top 12 moves that throws away 2.5+
 // pawns - is tested as a puzzle start: the opponent's reply has to be the only
 // move that wins, and stay the only one for every move of the solution. New
-// puzzles are merged into public/puzzles.json; run puzzleRate.test.ts after.
+// puzzles are added to data/puzzles-mined.json; then rate them with
+// puzzleRate.test.ts and build the app's bank with puzzleBank.test.ts.
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Chess, type Color } from 'chess.js';
@@ -20,7 +21,7 @@ import { puzzleRating, type TacticPuzzle } from '../lib/learn/puzzles';
 import { expectedFor } from '../lib/review/winprob';
 import { nodeEngine } from './nodeEngine';
 
-const OUT = fileURLToPath(new URL('../../public/puzzles.json', import.meta.url));
+const OUT = fileURLToPath(new URL('../../data/puzzles-mined.json', import.meta.url));
 const PER_GAME = 8;
 /** Share of plain captures that still get the deep check (they are already plentiful). */
 const SKIP_PLAIN = +(process.env.PUZZLE_PLAIN ?? 0.3);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Segmented, Toggle, toast } from '../components/Widgets';
 import { canUseThreads, hardwareThreads } from '../lib/engine/manager';
 import { exportAll, importAll, wipeAll, type Backup } from '../lib/storage/db';
+import { useLearn } from '../state/learn';
 import { useProfile } from '../state/profile';
 import { useSettings, type BoardTheme } from '../state/settings';
 import { saveTextFile } from '../lib/platform';
@@ -35,7 +36,10 @@ export function SettingsPage() {
   const threads = canUseThreads();
 
   const download = async () => {
-    const data = await exportAll(JSON.parse(localStorage.getItem('outpost.profile') ?? 'null'));
+    const data = await exportAll(
+      JSON.parse(localStorage.getItem('outpost.profile') ?? 'null'),
+      JSON.parse(localStorage.getItem('outpost.learn') ?? 'null'),
+    );
     try {
       const where = saveTextFile(`outpost-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json', JSON.stringify(data));
       if (where) toast(`Backup saved to ${where}`);
@@ -49,6 +53,7 @@ export function SettingsPage() {
       const data = JSON.parse(await file.text()) as Backup;
       await importAll(data);
       if (data.profile) localStorage.setItem('outpost.profile', JSON.stringify(data.profile));
+      if (data.learn) localStorage.setItem('outpost.learn', JSON.stringify(data.learn));
       toast(`Restored ${data.games.length} games`);
       setTimeout(() => location.reload(), 800);
     } catch (e) {
@@ -190,7 +195,7 @@ export function SettingsPage() {
         <section className="card">
           <h2>Your data</h2>
           <p className="muted" style={{ fontSize: '0.88rem' }}>
-            Games, reviews and practice positions are stored only in this browser. Back them up to move to another device.
+            Games, reviews, course progress and puzzle ratings are stored only on this device. Back them up to move to another one.
           </p>
           <div className="row">
             <button className="btn" onClick={download}>
@@ -214,6 +219,16 @@ export function SettingsPage() {
               }}
             >
               Delete everything
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                if (!confirm('Reset your course progress, exam results and puzzle rating?')) return;
+                useLearn.getState().reset();
+                toast('Learning progress reset');
+              }}
+            >
+              Reset learning progress
             </button>
           </div>
         </section>

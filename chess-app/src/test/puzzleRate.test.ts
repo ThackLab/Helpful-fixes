@@ -1,10 +1,11 @@
-// Rates the puzzles in public/puzzles.json by letting the bots try them: each
-// puzzle is attempted by bots from 300 to 1900, and its rating is the strength
-// at which a bot solves it about half the time (logistic fit, with the old
-// heuristic rating as a weak prior). Run with:
+// Rates the mined puzzles (data/puzzles-mined.json) by letting the bots try
+// them: each puzzle is attempted by bots from 300 to 1900, and its rating is
+// the strength at which a bot solves it about half the time (logistic fit,
+// with the heuristic rating as a weak prior). Results go to
+// data/puzzle-ratings.json, so the run can be stopped, resumed, and run while
+// the miner is still adding puzzles. Run with:
 //   PUZZLE_RATE="<workers>" npx vitest run src/test/puzzleRate.test.ts --silent=false
-// Puzzles already rated are skipped, so the run can be stopped and resumed.
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Chess } from 'chess.js';
 import { it } from 'vitest';
@@ -15,7 +16,8 @@ import type { Engine } from '../lib/engine/engine';
 import type { TacticPuzzle } from '../lib/learn/puzzles';
 import { nodeEngine } from './nodeEngine';
 
-const FILE = fileURLToPath(new URL('../../public/puzzles.json', import.meta.url));
+const MINED = fileURLToPath(new URL('../../data/puzzles-mined.json', import.meta.url));
+export const RATINGS = fileURLToPath(new URL('../../data/puzzle-ratings.json', import.meta.url));
 const LEVELS = [300, 600, 900, 1200, 1450, 1900];
 const TRIES = 2;
 
@@ -59,35 +61,32 @@ export function fitRating(results: { elo: number; ok: boolean }[], prior: number
 
 it.skipIf(!process.env.PUZZLE_RATE)('rate puzzles', { timeout: 24 * 3_600_000 }, async () => {
   const workers = +(process.env.PUZZLE_RATE ?? 3);
-  const all: (TacticPuzzle & { calibrated?: boolean })[] = JSON.parse(readFileSync(FILE, 'utf8'));
-  const todo = all.filter((p) => !p.calibrated);
-  let next = 0;
+  const ratings: Record<string, { rating: number; solved: string }> = existsSync(RATINGS) ? JSON.parse(readFileSync(RATINGS, 'utf8')) : {};
   let done = 0;
   const save = () => {
-    // Re-read so puzzles mined meanwhile are kept.
-    const now: (TacticPuzzle & { calibrated?: boolean })[] = JSON.parse(readFileSync(FILE, 'utf8'));
-    const byId = new Map(all.map((p) => [p.id, p]));
-    const merged = now.map((p) => (byId.get(p.id)?.calibrated ? byId.get(p.id)! : p));
-    writeFileSync(FILE + '.tmp', JSON.stringify(merged));
-    renameSync(FILE + '.tmp', FILE);
+    writeFileSync(RATINGS + '.tmp', JSON.stringify(ratings));
+    renameSync(RATINGS + '.tmp', RATINGS);
   };
+  // Picks up puzzles the miner adds while this runs.
+  const pending = () => (JSON.parse(readFileSync(MINED, 'utf8')) as TacticPuzzle[]).filter((p) => !ratings[p.id]);
+  const claimed = new Set<string>();
   const worker = async () => {
     const engine = nodeEngine();
-    while (next < todo.length) {
-      const p = todo[next++];
+    for (;;) {
+      const p = pending().find((x) => !claimed.has(x.id));
+      if (!p) break;
+      claimed.add(p.id);
       const results: { elo: number; ok: boolean }[] = [];
       for (const elo of LEVELS) for (let t = 0; t < TRIES; t++) results.push({ elo, ok: await attempt(engine, p, elo) });
-      const old = p.rating;
-      p.rating = fitRating(results, old);
-      p.calibrated = true;
-      done++;
       const solved = LEVELS.map((e) => results.filter((r) => r.elo === e && r.ok).length).join('');
-      process.stdout.write(`\n${done}/${todo.length} ${p.id} [${p.themes.join(',')}] ${old} -> ${p.rating} (${solved})`);
-      if (done % 20 === 0) save();
+      ratings[p.id] = { rating: fitRating(results, p.rating), solved };
+      done++;
+      process.stdout.write(`\n${done} ${p.id} [${p.themes.join(',')}] ${p.rating} -> ${ratings[p.id].rating} (${solved})`);
+      if (done % 10 === 0) save();
     }
     engine.terminate();
   };
   await Promise.all(Array.from({ length: workers }, worker));
   save();
-  console.log(`\nDONE: rated ${done}`);
+  console.log(`\nDONE: rated ${done}, ${Object.keys(ratings).length} in total`);
 });
