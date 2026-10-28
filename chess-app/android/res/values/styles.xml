@@ -6,7 +6,7 @@
         <item name="android:navigationBarColor">@color/bar</item>
         <item name="android:colorAccent">@color/accent</item>
     </style>
-    <color name="background">#1B1410</color>
-    <color name="bar">#1B1410</color>
-    <color name="accent">#F2A65E</color>
+    <color name="background">#302E2B</color>
+    <color name="bar">#262522</color>
+    <color name="accent">#81B64C</color>
 </resources>

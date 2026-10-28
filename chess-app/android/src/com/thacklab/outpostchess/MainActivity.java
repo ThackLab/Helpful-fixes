@@ -56,7 +56,7 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(false);
         s.setSupportMultipleWindows(false);
         s.setTextZoom(100);
-        web.setBackgroundColor(0xFF1B1410);
+        web.setBackgroundColor(0xFF302E2B);
         web.setWebViewClient(new AssetClient());
         web.setWebChromeClient(new FileChooserClient());
         web.addJavascriptInterface(new Bridge(), "OutpostAndroid");

@@ -1,12 +1,12 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { BookOpen, ChessKnight, Download, GraduationCap, History, Microscope, Puzzle, Settings, UserRound } from 'lucide-react';
+import { BookOpen, Download, GraduationCap, History, House, Menu, Microscope, Puzzle, Settings, Users } from 'lucide-react';
 import { Logo } from './components/Widgets';
 import { navigate, useRoute } from './lib/router';
 import { loadOpeningBook } from './lib/chess/openings';
 import { pruneEvals } from './lib/review/evalCache';
 import { useLiveGame } from './state/game';
 import { HomePage } from './pages/Home';
-import { PlayPage } from './pages/Play';
+import { PlayHub, PlayPage } from './pages/Play';
 import { GamePage } from './pages/Game';
 import { ReviewPage } from './pages/Review';
 import { AnalysisPage } from './pages/Analysis';
@@ -17,6 +17,9 @@ import { SettingsPage } from './pages/Settings';
 import { AppearancePage } from './pages/Appearance';
 import { InsightsPage } from './pages/Insights';
 import { FriendBoard, FriendHome, FriendJoin } from './pages/Friend';
+import { OnlineGamePage } from './pages/Online';
+import { useOnlineSync } from './state/online';
+import { useOpponents } from './state/opponents';
 import { OpeningDrill, OpeningsPage } from './pages/Openings';
 import { LearnPage } from './pages/Learn';
 import { LessonPage } from './pages/Lesson';
@@ -34,14 +37,31 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { path: '/', label: 'Play', icon: <ChessKnight size={22} />, match: (p) => p === '/' || p.startsWith('/play') || p === '/game' },
-  { path: '/puzzles', label: 'Puzzles', icon: <Puzzle size={22} />, match: (p) => p.startsWith('/puzzles') || p.startsWith('/tactics') },
-  { path: '/learn', label: 'Learn', icon: <GraduationCap size={22} />, match: (p) => p.startsWith('/learn') || p.startsWith('/exam') },
+  { path: '/', label: 'Home', icon: <House size={24} fill="currentColor" />, match: (p) => p === '/' || p.startsWith('/play') || p === '/game' },
+  {
+    path: '/puzzles',
+    label: 'Puzzles',
+    icon: <Puzzle size={24} fill="currentColor" />,
+    match: (p) => p.startsWith('/puzzles') || p.startsWith('/tactics'),
+  },
+  {
+    path: '/learn',
+    label: 'Learn',
+    icon: <GraduationCap size={24} />,
+    match: (p) => p.startsWith('/learn') || p.startsWith('/exam') || p.startsWith('/openings'),
+  },
+  {
+    path: '/friend',
+    label: 'Friends',
+    icon: <Users size={24} fill="currentColor" />,
+    match: (p) => p.startsWith('/friend') || p.startsWith('/online'),
+  },
   {
     path: '/you',
-    label: 'You',
-    icon: <UserRound size={22} />,
-    match: (p) => ['/you', '/games', '/review', '/analysis', '/import', '/settings', '/practice'].some((x) => p.startsWith(x)),
+    label: 'More',
+    icon: <Menu size={24} />,
+    match: (p) =>
+      ['/you', '/games', '/review', '/analysis', '/import', '/settings', '/practice', '/appearance', '/insights'].some((x) => p.startsWith(x)),
   },
 ];
 
@@ -58,6 +78,7 @@ function isFocus(parts: string[]): boolean {
   const [root, id] = parts;
   if (root === 'game' || root === 'review' || root === 'tactics' || root === 'exam') return true;
   if (root === 'friend' && id && id !== 'join') return true;
+  if (root === 'online' && id) return true;
   if (root === 'openings' && id) return true;
   if (root === 'learn' && id) return true;
   if (root === 'puzzles' && id) return true;
@@ -72,6 +93,8 @@ export function App() {
     main.current?.scrollTo(0, 0);
   }, [route.path]);
   const live = useLiveGame((s) => s.game);
+  useOnlineSync();
+  const yourMoves = useOpponents().filter((o) => o.yourMove).length;
   useEffect(() => {
     void loadOpeningBook();
     // Old background evaluations are only kept for a month.
@@ -85,7 +108,12 @@ export function App() {
       page = <HomePage />;
       break;
     case 'play':
-      page = <PlayPage key={route.query.get('fen') ?? ''} initialFen={route.query.get('fen') ?? undefined} />;
+      page =
+        id === 'custom' || route.query.get('fen') ? (
+          <PlayPage key={route.query.get('fen') ?? ''} initialFen={route.query.get('fen') ?? undefined} />
+        ) : (
+          <PlayHub />
+        );
       break;
     case 'game':
       page = <GamePage />;
@@ -132,6 +160,9 @@ export function App() {
     case 'openings':
       page = id ? <OpeningDrill key={id} id={id} /> : <OpeningsPage />;
       break;
+    case 'online':
+      page = id ? <OnlineGamePage key={id} code={id} autoJoin={route.query.get('accept') === '1'} /> : <FriendHome />;
+      break;
     case 'friend':
       page = id === 'join' ? <FriendJoin d={route.query.get('d')} /> : id ? <FriendBoard key={id} id={id} /> : <FriendHome />;
       break;
@@ -146,7 +177,7 @@ export function App() {
       );
   }
 
-  const href = (t: Tab) => `#${t.path === '/' && live?.status === 'playing' ? '/game' : t.path}`;
+  const href = (t: Tab) => `#${t.path}`;
   return (
     <div className={`app ${isFocus(route.parts) ? 'focus' : ''}`}>
       <nav className="sidebar">
@@ -177,7 +208,7 @@ export function App() {
           <a key={t.path} href={href(t)} className={`tab ${t.match(route.path) ? 'active' : ''}`}>
             {t.icon}
             {t.label}
-            {t.path === '/' && live?.status === 'playing' && <span className="tab-dot" />}
+            {((t.path === '/' && live?.status === 'playing') || (t.path === '/friend' && yourMoves > 0)) && <span className="tab-dot" />}
           </a>
         ))}
       </nav>

@@ -38,10 +38,21 @@ export interface Theme {
   light?: boolean;
   /** Shown in the theme list: background, text and accent. */
   swatch: [string, string, string];
-  group: 'Warm' | 'Dark' | 'Colour' | 'Light' | 'Accessible';
+  group: 'Classic' | 'Warm' | 'Dark' | 'Colour' | 'Light' | 'Accessible';
 }
 
 export const THEMES: Theme[] = [
+  {
+    id: 'club',
+    name: 'Club',
+    blurb: 'The classic club look: green board, dark greys, chunky green buttons.',
+    display: 'plain',
+    fonts: [],
+    board: 'green',
+    pieces: 'merida',
+    swatch: ['#302e2b', '#ffffff', '#81b64c'],
+    group: 'Classic',
+  },
   {
     id: 'hearth',
     name: 'Hearth',
@@ -74,17 +85,6 @@ export const THEMES: Theme[] = [
     pieces: 'chessnut',
     swatch: ['#0b0b0c', '#f2f2f3', '#c9c9cf'],
     group: 'Dark',
-  },
-  {
-    id: 'club',
-    name: 'Club',
-    blurb: 'The classic green tournament board.',
-    display: 'plain',
-    fonts: [],
-    board: 'green',
-    pieces: 'merida',
-    swatch: ['#262421', '#ffffff', '#81b64c'],
-    group: 'Colour',
   },
   {
     id: 'walnut',
