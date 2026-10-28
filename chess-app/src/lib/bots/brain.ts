@@ -270,6 +270,12 @@ export async function chooseBotMove(engine: Engine, ctx: BotMoveContext): Promis
   // Everyone looks at a few moves at least.
   const rest = legal.map(moveToUci).filter((u) => !noticed.has(u) && !situational.has(u));
   while (noticed.size < Math.min(3, legal.length) && rest.length) noticed.add(rest.splice(Math.floor(rng() * rest.length), 1)[0]);
+  // When every move belongs to a situation the bot didn't spot, it still has to
+  // play something: one of those moves, without seeing why.
+  if (!noticed.size) {
+    const all = legal.map(moveToUci);
+    noticed.add(all[Math.floor(rng() * all.length)]);
+  }
 
   // A shallow look at every considered move (sees what can be taken back at once).
   const sightRes = await engine.analyse({

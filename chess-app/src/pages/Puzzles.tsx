@@ -164,8 +164,9 @@ export function PuzzlesPage() {
         {!all && <div className="empty">Loading puzzles…</div>}
       </div>
       <p className="faint" style={{ fontSize: '0.8rem', marginTop: 16 }}>
-        {all?.length ?? '…'} puzzles. Each one has a single winning solution, checked move by move by Stockfish, and a rating measured by letting the
-        bots solve it.
+        {all?.length ?? '…'} puzzles, each with a single winning solution checked move by move by Stockfish. Ratings are measured by letting the bots
+        solve them: a 900 puzzle is one the 900 bot gets right about half the time, and your rating moves on the same scale, so a puzzle at your
+        rating is a fair fight. The numbers are this app’s own and are not comparable with lichess or chess.com puzzle ratings.
       </p>
     </div>
   );

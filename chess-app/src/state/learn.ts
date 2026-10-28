@@ -26,6 +26,27 @@ export interface ExamRecord {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** What was done today, for the daily plan. Starts over each day. */
+export interface DayLog {
+  date: string;
+  puzzles: number;
+  lessons: number;
+  exams: number;
+  practice: number;
+  rush: number;
+}
+
+const emptyDay = (): DayLog => ({ date: today(), puzzles: 0, lessons: 0, exams: 0, practice: 0, rush: 0 });
+
+/** Today's log with one counter moved on. */
+function logged(day: DayLog | undefined, key: Exclude<keyof DayLog, 'date'>): { day: DayLog } {
+  const d = day?.date === today() ? day : emptyDay();
+  return { day: { ...d, [key]: d[key] + 1 } };
+}
+
+/** Today's activity (empty if nothing was done yet today). */
+export const todayLog = (day: DayLog | undefined): DayLog => (day?.date === today() ? day : emptyDay());
 const dayBefore = (d: string) => new Date(new Date(d).getTime() - 86_400_000).toISOString().slice(0, 10);
 
 interface LearnState {
@@ -47,6 +68,7 @@ interface LearnState {
   streak: number;
   bestStreak: number;
   lastActive: string;
+  day?: DayLog;
   reach: (lesson: string, step: number) => void;
   finishLesson: (lesson: string, score: number) => { stars: number; best: number; improved: boolean };
   recordExam: (levelId: string, correct: number, total: number) => ExamRecord;
@@ -54,6 +76,8 @@ interface LearnState {
   /** Records a puzzle attempt; rated attempts move the rating. Returns the rating change. */
   record: (p: TacticPuzzle, ok: boolean, rated?: boolean) => number;
   recordRush: (score: number) => boolean;
+  /** A position from your games was practised. */
+  notePractice: () => void;
   reset: () => void;
 }
 
@@ -96,7 +120,7 @@ export const useLearn = create<LearnState>()(
         const cur = s.lessons[lesson] ?? { step: 0, done: false };
         const best = Math.max(cur.best ?? 0, Math.round(score));
         const stars = starsFor(best);
-        set({ lessons: { ...s.lessons, [lesson]: { ...cur, done: true, best, stars } }, ...touched(s) });
+        set({ lessons: { ...s.lessons, [lesson]: { ...cur, done: true, best, stars } }, ...touched(s), ...logged(s.day, 'lessons') });
         return { stars: starsFor(score), best, improved: score > (cur.best ?? -1) };
       },
       recordExam: (levelId, correct, total) => {
@@ -113,7 +137,7 @@ export const useLearn = create<LearnState>()(
           at: Date.now(),
           placed: prev?.placed && best < EXAM_PASS ? true : undefined,
         };
-        set({ exams: { ...s.exams, [levelId]: rec }, ...touched(s) });
+        set({ exams: { ...s.exams, [levelId]: rec }, ...touched(s), ...logged(s.day, 'exams') });
         return rec;
       },
       place: (levelIndex, rating) => {
@@ -152,15 +176,17 @@ export const useLearn = create<LearnState>()(
           themes,
           recent: [...s.recent.filter((id) => id !== p.id), p.id].slice(-600),
           ...touched(s),
+          ...logged(s.day, 'puzzles'),
         });
         return delta;
       },
       recordRush: (score) => {
         const s = get();
         const best = score > s.rushBest;
-        set({ rushBest: Math.max(s.rushBest, score), rushRuns: s.rushRuns + 1, ...touched(s) });
+        set({ rushBest: Math.max(s.rushBest, score), rushRuns: s.rushRuns + 1, ...touched(s), ...logged(s.day, 'rush') });
         return best;
       },
+      notePractice: () => set((s) => ({ ...touched(s), ...logged(s.day, 'practice') })),
       reset: () => set(fresh),
     }),
     {

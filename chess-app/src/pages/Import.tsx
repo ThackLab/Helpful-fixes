@@ -7,6 +7,7 @@ import { Segmented, toast } from '../components/Widgets';
 import { useReviewer } from '../state/reviewer';
 import { Chess } from 'chess.js';
 import { PageHead } from '../components/ui';
+import { useSettings } from '../state/settings';
 
 type Source = 'chesscom' | 'lichess' | 'pgn';
 
@@ -187,6 +188,10 @@ export function ImportPage() {
   const [src, setSrc] = useState<Source>('chesscom');
   const [user, setUser] = useState<string>(() => savedUser('chesscom'));
   const [pgn, setPgn] = useState('');
+  const [pgnName, setPgnName] = useState(() => {
+    const n = useSettings.getState().playerName;
+    return n === 'You' ? '' : n;
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [list, setList] = useState<Candidate[]>([]);
@@ -195,6 +200,8 @@ export function ImportPage() {
   const refreshKnown = async () => setKnown(new Set((await listGames()).map((g) => g.id)));
 
   const load = async () => {
+    // The name used in PGN files is remembered as your player name.
+    if (src === 'pgn' && pgnName.trim()) useSettings.getState().set({ playerName: pgnName.trim() });
     setError(null);
     setBusy(true);
     setList([]);
@@ -217,7 +224,7 @@ export function ImportPage() {
   };
 
   const importOne = async (c: Candidate, review: boolean) => {
-    const rec = toRecord(c, src === 'pgn' ? undefined : user.trim());
+    const rec = toRecord(c, src === 'pgn' ? pgnName.trim() || undefined : user.trim());
     if (!rec) return toast('Could not read that game');
     if (!known.has(rec.id)) await saveGame(rec);
     await refreshKnown();
@@ -227,7 +234,7 @@ export function ImportPage() {
   const importAll = async () => {
     let n = 0;
     for (const c of list) {
-      const rec = toRecord(c, src === 'pgn' ? undefined : user.trim());
+      const rec = toRecord(c, src === 'pgn' ? pgnName.trim() || undefined : user.trim());
       if (rec && !known.has(rec.id)) {
         await saveGame(rec);
         n++;
@@ -263,6 +270,13 @@ export function ImportPage() {
           {src === 'pgn' ? (
             <>
               <textarea rows={8} placeholder="Paste PGN here" value={pgn} onChange={(e) => setPgn(e.target.value)} />
+              <input
+                className="input"
+                style={{ marginTop: 8, width: '100%' }}
+                placeholder="Your name in these games (optional, for Insights)"
+                value={pgnName}
+                onChange={(e) => setPgnName(e.target.value)}
+              />
               <div className="row" style={{ marginTop: 8 }}>
                 <label className="btn small">
                   Open .pgn file

@@ -15,6 +15,7 @@ import { PracticePage } from './pages/Practice';
 import { ImportPage } from './pages/Import';
 import { SettingsPage } from './pages/Settings';
 import { AppearancePage } from './pages/Appearance';
+import { InsightsPage } from './pages/Insights';
 import { LearnPage } from './pages/Learn';
 import { LessonPage } from './pages/Lesson';
 import { PuzzlesPage } from './pages/Puzzles';
@@ -120,6 +121,9 @@ export function App() {
       break;
     case 'appearance':
       page = <AppearancePage />;
+      break;
+    case 'insights':
+      page = <InsightsPage />;
       break;
     default:
       page = (

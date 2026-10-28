@@ -15,6 +15,7 @@ import type { Classification } from '../lib/review/types';
 import { hintsFor, refutationText } from '../lib/review/hints';
 import { PageHead } from '../components/ui';
 import { Moves, Rich, San } from '../components/Rich';
+import { useLearn } from '../state/learn';
 
 const DAY = 86_400_000;
 const INTERVALS = [DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -95,6 +96,7 @@ export function PracticePage() {
       due: Date.now() + (ok ? INTERVALS[box] : 10 * 60_000),
     };
     await savePuzzle(next);
+    useLearn.getState().notePractice();
     setCurrent((c) => (c?.id === next.id ? next : c));
   };
 

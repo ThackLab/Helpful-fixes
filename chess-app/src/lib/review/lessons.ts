@@ -304,7 +304,7 @@ export function gameLessons(review: GameReview, ctx: LessonContext): GameLessons
       case 'positional':
         detail = `The engine preferred a different plan ${times} (${ms
           .slice(0, 3)
-          .map((m) => `${moveName(m)} - ${m.bestSan} was better`)
+          .map((m) => `${moveName(m)} – ${m.bestSan} was better`)
           .join(', ')}).`;
         break;
       default:

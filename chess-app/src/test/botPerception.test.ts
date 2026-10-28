@@ -19,6 +19,8 @@ const puzzles: TacticPuzzle[] = JSON.parse(readFileSync(fileURLToPath(new URL('.
 
 /** The position after the blunder, optionally with the blunderer to move again. */
 function testPosition(p: TacticPuzzle, flip: boolean): string | null {
+  // Classic puzzles start at the puzzle itself, not just after a blunder.
+  if (p.noPrev) return null;
   const c = new Chess(p.fen);
   playUci(c, p.moves[0]);
   if (!flip) return c.fen();

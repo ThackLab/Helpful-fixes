@@ -28,6 +28,26 @@ export function saveTextFile(name: string, mime: string, text: string): string |
   return null;
 }
 
+/**
+ * Hands a file to the phone's share sheet, which offers "Save to Files",
+ * iCloud Drive, Google Drive and so on; falls back to a download. Resolves to
+ * where it went, or null if the person cancelled.
+ */
+export async function shareOrSaveFile(name: string, mime: string, text: string): Promise<'shared' | 'downloaded' | string | null> {
+  if (bridge) return saveTextFile(name, mime, text);
+  const file = typeof File !== 'undefined' ? new File([text], name, { type: mime }) : null;
+  if (file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Outpost Chess backup' });
+      return 'shared';
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return null;
+    }
+  }
+  saveTextFile(name, mime, text);
+  return 'downloaded';
+}
+
 export async function copyText(text: string): Promise<void> {
   if (bridge) {
     bridge.copyText(text);

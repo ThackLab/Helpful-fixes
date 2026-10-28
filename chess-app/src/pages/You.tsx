@@ -11,6 +11,7 @@ import {
   Puzzle,
   Palette,
   Settings,
+  TrendingUp,
   UserRound,
 } from 'lucide-react';
 import { LEVELS, currentLevel, levelPassed } from '../lib/learn/levels';
@@ -22,8 +23,10 @@ import { liveStreak, useLearn } from '../state/learn';
 import { THEME_SETS, useDueCount } from './Puzzles';
 import { GameListRow, useGames } from './Games';
 import { CountUp } from '../components/Rich';
+import { backupNow, snoozeBackup, useBackupDue } from '../lib/backup';
 
 export function YouPage() {
+  const backupDue = useBackupDue();
   const profile = useProfile();
   const learn = useLearn();
   const games = useGames();
@@ -70,6 +73,23 @@ export function YouPage() {
           </div>
         </div>
       </header>
+
+      {backupDue && (
+        <section className="notice-card">
+          <div>
+            <b>Your progress lives only on this phone</b>
+            <p>Save a backup to Files, iCloud Drive or Google Drive, in case you lose or reset it.</p>
+          </div>
+          <div className="row">
+            <button className="btn primary small" onClick={() => void backupNow()}>
+              Back up now
+            </button>
+            <button className="btn ghost small" onClick={snoozeBackup}>
+              Later
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="rating-tiles">
         <button
@@ -226,6 +246,7 @@ export function YouPage() {
         />
         <ListRow icon={<Microscope size={20} />} title="Analysis board" sub="Engine lines, variations, PGN and FEN" href="/analysis" />
         <ListRow icon={<Download size={20} />} title="Import games" sub="From chess.com, lichess or a PGN" href="/import" />
+        <ListRow icon={<TrendingUp size={20} />} title="Insights" sub="Your patterns across every reviewed game" href="/insights" />
         <ListRow icon={<Palette size={20} />} title="Appearance" sub="Themes, boards, pieces and text size" href="/appearance" />
         <ListRow icon={<Settings size={20} />} title="Settings" sub="Board, sound, engine and data" href="/settings" />
       </div>

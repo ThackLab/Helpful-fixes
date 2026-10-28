@@ -19,6 +19,9 @@ export interface Settings {
   reduceMotion: boolean;
   /** Show moves with little piece pictures (♘f3) instead of letters (Nf3). */
   figurines: boolean;
+  /** When the last backup was saved, and when the reminder was last put off. */
+  lastBackupAt: number;
+  backupSnoozedAt: number;
   sound: boolean;
   coordinates: boolean;
   showLegalMoves: boolean;
@@ -52,6 +55,8 @@ export const useSettings = create<Settings>()(
       squareNames: false,
       reduceMotion: false,
       figurines: true,
+      lastBackupAt: 0,
+      backupSnoozedAt: 0,
       sound: true,
       coordinates: true,
       showLegalMoves: true,

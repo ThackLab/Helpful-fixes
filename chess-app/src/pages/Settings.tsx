@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Segmented, Toggle, toast } from '../components/Widgets';
 import { canUseThreads, hardwareThreads } from '../lib/engine/manager';
-import { exportAll, importAll, wipeAll, type Backup } from '../lib/storage/db';
+import { importAll, wipeAll, type Backup } from '../lib/storage/db';
+import { backupNow } from '../lib/backup';
 import { useLearn } from '../state/learn';
 import { useProfile } from '../state/profile';
 import { useSettings } from '../state/settings';
 import { themeOf } from '../lib/appearance';
-import { saveTextFile } from '../lib/platform';
 import { ListRow, PageHead } from '../components/ui';
 
 function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
@@ -28,13 +28,9 @@ export function SettingsPage() {
   const threads = canUseThreads();
 
   const download = async () => {
-    const data = await exportAll(
-      JSON.parse(localStorage.getItem('outpost.profile') ?? 'null'),
-      JSON.parse(localStorage.getItem('outpost.learn') ?? 'null'),
-    );
     try {
-      const where = saveTextFile(`outpost-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json', JSON.stringify(data));
-      if (where) toast(`Backup saved to ${where}`);
+      const where = await backupNow();
+      if (where && where !== 'shared') toast(where === 'downloaded' ? 'Backup downloaded' : `Backup saved to ${where}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not save the backup');
     }
@@ -183,11 +179,13 @@ export function SettingsPage() {
         <section className="card">
           <h2>Your data</h2>
           <p className="muted" style={{ fontSize: '0.88rem' }}>
-            Games, reviews, course progress and puzzle ratings are stored only on this device. Back them up to move to another one.
+            Games, reviews, course progress and puzzle ratings are stored only on this device. Save a backup to Files, iCloud Drive or Google Drive to
+            keep them safe or move them to another phone.
+            {s.lastBackupAt > 0 && <> Last backup: {new Date(s.lastBackupAt).toLocaleDateString()}.</>}
           </p>
           <div className="row">
-            <button className="btn" onClick={download}>
-              Export backup
+            <button className="btn primary" onClick={download}>
+              Back up now
             </button>
             <label className="btn">
               Restore backup

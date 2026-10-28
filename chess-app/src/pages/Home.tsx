@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flame, GraduationCap, Puzzle, SlidersHorizontal, Trophy } from 'lucide-react';
+import { Check, ChevronRight, Flame, SlidersHorizontal } from 'lucide-react';
 import { navigate } from '../lib/router';
 import { BOTS, findBot, monogram } from '../lib/bots/bots';
-import { findLesson } from '../lib/learn/curriculum';
-import { LEVELS, levelProgress, nextStep } from '../lib/learn/levels';
 import { Logo, Segmented } from '../components/Widgets';
-import { Meter, SectionTitle } from '../components/ui';
+import { SectionTitle } from '../components/ui';
 import { useProfile } from '../state/profile';
 import { useLiveGame } from '../state/game';
-import { liveStreak, useLearn } from '../state/learn';
+import { liveStreak, todayLog, useLearn } from '../state/learn';
+import { todayPlan } from '../lib/learn/today';
+import { Accent } from '../components/Rich';
+import { useDueCount } from './Puzzles';
+import type { GameRecord } from '../lib/storage/db';
 import { TIME_CONTROLS, hasSavedSetup, loadSetup, saveSetup, setupBot, startBotGame, suggestedBot, type Setup } from '../state/playSetup';
 import { GameListRow, useGames } from './Games';
 
@@ -40,11 +42,6 @@ export function HomePage() {
     const el = box?.querySelector<HTMLElement>('.opp-chip.on');
     if (box && el) box.scrollTo({ left: el.offsetLeft - box.offsetLeft - (box.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' });
   }, [bot.id]);
-
-  const step = nextStep(learn);
-  const stepLesson = step.kind === 'lesson' ? findLesson(step.lessonId) : undefined;
-  const stepLevel = step.kind === 'done' ? LEVELS[LEVELS.length - 1] : step.level;
-  const prog = levelProgress(learn, stepLevel);
 
   return (
     <div className="page narrow">
@@ -130,45 +127,7 @@ export function HomePage() {
         </section>
       )}
 
-      <SectionTitle>Keep improving</SectionTitle>
-      <div>
-        <button
-          className="continue-card"
-          onClick={() => navigate(step.kind === 'lesson' ? `/learn/${step.lessonId}` : step.kind === 'exam' ? `/exam/${step.level.id}` : '/learn')}
-        >
-          <span className="cc-ico">
-            {step.kind === 'exam' ? <Trophy size={20} strokeWidth={1.5} /> : <GraduationCap size={20} strokeWidth={1.5} />}
-          </span>
-          <span className="cc-body">
-            <span className="cc-kicker">
-              Level {stepLevel.n} · {stepLevel.name}
-            </span>
-            <span className="cc-title">
-              {step.kind === 'lesson' ? stepLesson?.title : step.kind === 'exam' ? `Level ${stepLevel.n} exam` : 'Course complete'}
-            </span>
-            <span className="cc-sub">
-              {step.kind === 'lesson'
-                ? stepLesson?.summary
-                : step.kind === 'exam'
-                  ? 'Pass it to unlock the next level'
-                  : 'Every level passed. Keep sharp with puzzles.'}
-            </span>
-            <Meter value={prog.done / prog.total} />
-          </span>
-        </button>
-        <button className="continue-card" onClick={() => navigate('/puzzles')}>
-          <span className="cc-ico">
-            <Puzzle size={20} strokeWidth={1.5} />
-          </span>
-          <span className="cc-body">
-            <span className="cc-kicker">Puzzles</span>
-            <span className="cc-title">Rating {learn.rating}</span>
-            <span className="cc-sub">
-              {learn.attempts ? `${learn.solved} solved · best rush ${learn.rushBest}` : 'Find the winning move. Your rating adapts as you go.'}
-            </span>
-          </span>
-        </button>
-      </div>
+      <TodayPlan opponent={bot.name} onPlay={() => startBotGame(setup)} games={games} />
 
       {games && games.length > 0 && (
         <>
@@ -181,5 +140,52 @@ export function HomePage() {
         </>
       )}
     </div>
+  );
+}
+
+/** The daily plan: a few short things that help most today, ticked off as they're done. */
+function TodayPlan({ opponent, onPlay, games }: { opponent: string; onPlay: () => void; games: GameRecord[] | null }) {
+  const learn = useLearn();
+  const due = useDueCount();
+  const day = todayLog(learn.day);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const gamesToday = (games ?? []).filter((g) => g.source === 'bot' && g.createdAt >= start.getTime() && g.result !== '*').length;
+  const items = todayPlan({ learn, day, due, gamesToday, opponent });
+  const done = items.filter((i) => i.done).length;
+  return (
+    <section className="today">
+      <div className="today-head">
+        <h2 className="display">
+          <Accent text={done === items.length ? 'All done *today*.' : 'Today'} />
+        </h2>
+        <span className="today-count">
+          <span className="num-display">{done}</span>/{items.length}
+        </span>
+      </div>
+      <div className="today-bar">
+        <span style={{ width: `${(done / items.length) * 100}%` }} />
+      </div>
+      <div className="list">
+        {items.map((it) => (
+          <button key={it.id} className={`today-item ${it.done ? 'done' : ''}`} onClick={() => (it.href ? navigate(it.href) : onPlay())}>
+            <span className="ti-check" aria-hidden>
+              {it.done && <Check size={14} strokeWidth={3} />}
+            </span>
+            <span className="ti-body">
+              <span className="ti-title">{it.title}</span>
+              <span className="ti-sub">{it.sub}</span>
+            </span>
+            {it.count && !it.done && (
+              <span className="ti-count">
+                {it.count[0]}/{it.count[1]}
+              </span>
+            )}
+            <ChevronRight size={18} className="ti-go" />
+          </button>
+        ))}
+      </div>
+      {done === items.length && <p className="today-note">Come back tomorrow for a new plan. Your streak counts every day you train.</p>}
+    </section>
   );
 }
