@@ -1,7 +1,7 @@
 // Offline support: the app shell, engine and opening book are cached on first
 // visit so the app keeps working without a connection.
-const CACHE = 'outpost-v1';
-const CORE = ['./', './index.html', './openings.json', './engine/stockfish-18-lite-single.js', './engine/stockfish-18-lite-single.wasm', './icon.svg', './manifest.webmanifest'];
+const CACHE = 'outpost-v2';
+const CORE = ['./', './index.html', './openings.json', './engine/stockfish-18-lite-single.js', './engine/stockfish-18-lite-single.wasm', './icon.svg', './manifest.webmanifest', './apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
@@ -34,7 +34,25 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  // Cache first for hashed assets, the engine and data files.
+  // Data files keep their names between versions (the puzzle bank, the opening
+  // book): answer from the cache, and fetch the current copy for next time.
+  if (/\.(json|webmanifest)$/.test(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE).then((c) =>
+        c.match(req).then((hit) => {
+          const update = fetch(req)
+            .then((res) => {
+              if (res.ok) c.put(req, res.clone());
+              return res;
+            })
+            .catch(() => hit);
+          return hit || update;
+        }),
+      ),
+    );
+    return;
+  }
+  // Cache first for hashed assets and the engine.
   event.respondWith(
     caches.match(req).then(
       (hit) =>
