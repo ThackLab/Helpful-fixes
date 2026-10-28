@@ -7,6 +7,7 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import '../styles/pieces.generated.css';
 import { useSettings } from '../state/settings';
+import { resolveBoard, resolvePieces } from '../lib/appearance';
 
 export type CgColor = 'white' | 'black';
 export type PromotionPiece = 'q' | 'r' | 'b' | 'n';
@@ -66,6 +67,8 @@ export const Board = memo(
     const propsRef = useRef(props);
     propsRef.current = props;
     const settings = useSettings();
+    // The visual-aid theme always names the squares; the edge coordinates are then redundant.
+    const names = settings.squareNames || settings.theme === 'clear';
     const [promo, setPromo] = useState<{ from: string; to: string; color: CgColor } | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -82,9 +85,9 @@ export const Board = memo(
         turnColor: p.turnColor ?? (p.fen.split(' ')[1] === 'b' ? 'black' : 'white'),
         lastMove: p.lastMove as Key[] | undefined,
         check: p.check,
-        coordinates: settings.coordinates,
+        coordinates: settings.coordinates && !names,
         viewOnly: p.viewOnly,
-        animation: { enabled: settings.animation, duration: 180 },
+        animation: { enabled: settings.animation && !settings.reduceMotion, duration: 180 },
         highlight: { lastMove: true, check: true, custom: p.highlights as Map<Key, string> | undefined },
         movable: {
           free: !!p.free,
@@ -149,7 +152,9 @@ export const Board = memo(
       props.premovable,
       props.free,
       settings.coordinates,
+      names,
       settings.animation,
+      settings.reduceMotion,
       settings.showLegalMoves,
       settings.premoves,
     ]);
@@ -176,8 +181,9 @@ export const Board = memo(
     })();
 
     return (
-      <div className={`board-wrap theme-${settings.boardTheme} ${props.className ?? ''}`}>
+      <div className={`board-wrap theme-${resolveBoard(settings)} ${props.className ?? ''}`} data-pieces={resolvePieces(settings)}>
         <div ref={el} className="cg-host" />
+        {names && <SquareNames orientation={props.orientation} />}
         {promo && (
           <div className="promo-overlay" onClick={() => finishPromotion(null)}>
             <div className="promo-col" style={promoStyle} onClick={(e) => e.stopPropagation()}>
@@ -193,6 +199,29 @@ export const Board = memo(
     );
   }),
 );
+
+const FILES = 'abcdefgh';
+
+/** Every square's name, in its corner, for players who want them spelled out. */
+function SquareNames({ orientation }: { orientation: CgColor }) {
+  const cells = [];
+  for (let row = 0; row < 8; row++)
+    for (let col = 0; col < 8; col++) {
+      const file = orientation === 'white' ? col : 7 - col;
+      const rank = orientation === 'white' ? 8 - row : row + 1;
+      cells.push(
+        <span key={`${row}${col}`} className={(file + rank) % 2 === 1 ? 'on-dark' : 'on-light'}>
+          {FILES[file]}
+          {rank}
+        </span>,
+      );
+    }
+  return (
+    <div className="square-names" aria-hidden>
+      {cells}
+    </div>
+  );
+}
 
 declare module 'react' {
   // eslint-disable-next-line @typescript-eslint/no-namespace

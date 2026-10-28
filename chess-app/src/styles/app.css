@@ -82,7 +82,7 @@ a {
 }
 
 ::selection {
-  background: #ffffff33;
+  background: var(--accent-soft);
 }
 
 input,
@@ -373,7 +373,7 @@ h3 {
 }
 
 .btn.danger {
-  border-color: #ff5c5c66;
+  border-color: var(--bad-line);
   color: var(--bad);
 }
 
@@ -468,12 +468,12 @@ h3 {
 }
 
 .toggle input:checked {
-  background: var(--text);
+  background: var(--accent);
 }
 
 .toggle input:checked::after {
   left: 19px;
-  background: #000;
+  background: var(--accent-text);
 }
 
 .chip {
@@ -497,9 +497,9 @@ h3 {
 }
 
 .chip.on {
-  background: var(--text);
+  background: var(--sel);
   border-color: var(--text);
-  color: #000;
+  color: var(--sel-text);
 }
 
 .chip-row {
@@ -529,12 +529,12 @@ h3 {
 
 .pill.danger {
   color: var(--bad);
-  border-color: #ff5c5c55;
+  border-color: var(--bad-line);
 }
 
 .pill.good {
   color: var(--good);
-  border-color: #3ddc8455;
+  border-color: var(--good-line);
 }
 
 .tag {
@@ -602,8 +602,8 @@ h3 {
 }
 
 .error-box {
-  border: 1px solid #ff5c5c55;
-  color: #ffb3b3;
+  border: 1px solid var(--bad-line);
+  color: var(--bad);
   border-radius: var(--radius-s);
   padding: 8px 12px;
 }
@@ -810,7 +810,7 @@ h3 {
 }
 
 .modal {
-  background: #000;
+  background: var(--bg);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-l);
   width: min(480px, 100%);
@@ -830,7 +830,7 @@ h3 {
   left: 50%;
   transform: translateX(-50%);
   background: var(--text);
-  color: #000;
+  color: var(--bg);
   padding: 9px 16px;
   border-radius: 999px;
   z-index: 100;
@@ -888,7 +888,7 @@ h3 {
   display: grid;
   place-items: center;
   flex: none;
-  background: #000 !important;
+  background: var(--bg) !important;
   border: 1px solid var(--line-strong);
   color: var(--text);
   font-size: 0.95rem;
@@ -912,7 +912,7 @@ h3 {
 
 .avatar.you {
   background: var(--text) !important;
-  color: #000;
+  color: var(--bg);
   border-color: var(--text);
 }
 
@@ -1283,7 +1283,7 @@ cg-board square.hl-target {
 .clock.active {
   background: var(--text);
   border-color: var(--text);
-  color: #000;
+  color: var(--bg);
 }
 
 .clock.low {
@@ -1298,7 +1298,7 @@ cg-board square.hl-target {
 
 .clock.dark.active {
   background: var(--text);
-  color: #000;
+  color: var(--bg);
   box-shadow: none;
 }
 
@@ -1419,8 +1419,8 @@ cg-board square.hl-target {
 }
 
 .move-strip .mv.cur {
-  background: var(--text);
-  color: #000;
+  background: var(--sel);
+  color: var(--sel-text);
 }
 
 .acc-box.small {
@@ -1478,7 +1478,7 @@ cg-board square.hl-target {
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.6;
-  color: #d4d4d4;
+  color: var(--text-soft);
 }
 
 .coach-line {
@@ -1704,7 +1704,7 @@ cg-board square.hl-target {
   margin: 3px 0 0;
   font-size: 0.93rem;
   line-height: 1.55;
-  color: #d4d4d4;
+  color: var(--text-soft);
 }
 
 /* ---------------------------------------------------------------- eval bar & graph */
@@ -1794,8 +1794,8 @@ cg-board square.hl-target {
 }
 
 .move-list .mv.cur {
-  background: var(--text);
-  color: #000;
+  background: var(--sel);
+  color: var(--sel-text);
 }
 
 .move-list .row-alt {
@@ -1827,8 +1827,8 @@ cg-board square.hl-target {
 }
 
 .tree .mv.cur {
-  background: var(--text);
-  color: #000;
+  background: var(--sel);
+  color: var(--sel-text);
 }
 
 .tree .num {
@@ -1978,7 +1978,7 @@ cg-board square.hl-target {
   margin: 6px 0 0;
   font-size: 0.92rem;
   line-height: 1.55;
-  color: #d4d4d4;
+  color: var(--text-soft);
 }
 
 .bubble .line {
@@ -2029,7 +2029,7 @@ cg-board square.hl-target {
   border-radius: var(--radius-s);
   padding: 3px 8px;
   background: var(--text);
-  color: #000;
+  color: var(--bg);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2066,7 +2066,7 @@ cg-board square.hl-target {
 
 .focus-card p {
   margin: 6px 0 12px;
-  color: #d4d4d4;
+  color: var(--text-soft);
 }
 
 /* ---------------------------------------------------------------- bots & play setup */
@@ -2214,7 +2214,7 @@ cg-board square.hl-target {
 .result-chip.win {
   border-color: var(--text);
   background: var(--text);
-  color: #000;
+  color: var(--bg);
 }
 
 .result-chip.loss {
@@ -2288,7 +2288,7 @@ cg-board square.hl-target {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid #000;
+  border: 2px solid var(--bg);
   cursor: pointer;
   padding: 0;
   outline: 1px solid var(--line-strong);
@@ -2398,8 +2398,8 @@ cg-board square.hl-target {
 }
 
 .opp-chip.on .avatar {
-  background: var(--text) !important;
-  color: #000;
+  background: var(--sel) !important;
+  color: var(--sel-text);
   border-color: var(--text);
 }
 
@@ -2817,9 +2817,9 @@ cg-board square.hl-target {
 }
 
 .path-node.done .pn-dot {
-  background: var(--text);
+  background: var(--sel);
   border-color: var(--text);
-  color: #000;
+  color: var(--sel-text);
 }
 
 .path-node.current .pn-dot {
@@ -2904,9 +2904,9 @@ cg-board square.hl-target {
 }
 
 .grade.A {
-  background: var(--text);
+  background: var(--sel);
   border-color: var(--text);
-  color: #000;
+  color: var(--sel-text);
 }
 
 .grade.B {
@@ -2920,7 +2920,7 @@ cg-board square.hl-target {
 
 .grade.F {
   color: var(--bad);
-  border-color: #ff5c5c66;
+  border-color: var(--bad-line);
 }
 
 .grade.big {
@@ -3015,7 +3015,7 @@ cg-board square.hl-target {
   display: grid;
   place-items: center;
   background: var(--text);
-  color: #000;
+  color: var(--bg);
   flex: none;
 }
 
@@ -3152,7 +3152,7 @@ cg-board square.hl-target {
   }
   .tabbar {
     display: flex;
-    background: #000;
+    background: var(--bg);
     border-top: 1px solid var(--line);
     padding: 4px 6px max(4px, env(safe-area-inset-bottom));
     gap: 4px;
@@ -3284,7 +3284,7 @@ cg-board square.hl-target {
   }
   .focus-screen .play-controls {
     margin-top: auto;
-    background: #000;
+    background: var(--bg);
     padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
   .review-screen .board-column {

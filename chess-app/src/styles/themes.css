@@ -1,0 +1,788 @@
+/* Themes. Each [data-theme] sets the colour tokens app.css is written in;
+   [data-display] sets how headlines and big numbers are typeset. Both work on
+   <html> for the whole app and on any element, which is how the theme
+   previews render each theme in its own colours. */
+
+:root {
+  --text-soft: #d4d4d4;
+  --sel: var(--text);
+  --sel-text: var(--bg);
+  --good-line: #3ddc8455;
+  --bad-line: #ff5c5c55;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-body);
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --display-weight: 650;
+  --display-tracking: -0.025em;
+  --num-weight: 300;
+  --base-size: 15px;
+  --text-scale: 1;
+  --focus: var(--text);
+  font-family: var(--font-body);
+  font-size: calc(var(--base-size) * var(--text-scale));
+}
+
+[data-text='l'] {
+  --text-scale: 1.12;
+}
+[data-text='xl'] {
+  --text-scale: 1.25;
+}
+
+/* ---------------------------------------------------------------- dark */
+
+[data-theme='noir'] {
+  --bg: #000;
+  --surface: #0a0a0a;
+  --surface-2: #121212;
+  --surface-3: #1c1c1c;
+  --line: #1f1f1f;
+  --line-strong: #2e2e2e;
+  --text: #ececec;
+  --text-soft: #cfcfcf;
+  --text-dim: #8f8f8f;
+  --text-faint: #5a5a5a;
+  --accent: #fff;
+  --accent-text: #000;
+  --accent-soft: #ffffff14;
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  --display-weight: 400;
+  --display-tracking: -0.01em;
+  --num-weight: 400;
+}
+
+[data-theme='graphite'] {
+  --bg: #0b0b0c;
+  --bg-raise: #0b0b0c;
+  --surface: #131315;
+  --surface-2: #1a1a1d;
+  --surface-3: #252529;
+  --line: #222225;
+  --line-strong: #333338;
+  --text: #f2f2f3;
+  --text-soft: #d2d2d6;
+  --text-dim: #9b9ba1;
+  --text-faint: #5d5d63;
+  --accent: #f2f2f3;
+  --accent-text: #0b0b0c;
+  --accent-soft: #ffffff14;
+  --display-weight: 800;
+  --display-tracking: -0.03em;
+  --num-weight: 250;
+}
+
+/* ---------------------------------------------------------------- colour */
+
+[data-theme='club'] {
+  --bg: #262421;
+  --bg-raise: #262421;
+  --surface: #2f2c29;
+  --surface-2: #383532;
+  --surface-3: #45413d;
+  --line: #36332f;
+  --line-strong: #4b4743;
+  --line-soft: #ffffff0f;
+  --text: #ffffff;
+  --text-soft: #e5e3df;
+  --text-dim: #b4b1ab;
+  --text-faint: #7d7973;
+  --accent: #81b64c;
+  --accent-strong: #6f9e3f;
+  --accent-text: #fff;
+  --accent-soft: #81b64c26;
+  --sel: #81b64c;
+  --sel-text: #fff;
+  --good: #81b64c;
+  --good-soft: #81b64c26;
+  --good-line: #81b64c66;
+  --bad: #fa412d;
+  --bad-soft: #fa412d1f;
+  --bad-line: #fa412d66;
+  --display-weight: 750;
+  --display-tracking: -0.015em;
+  --num-weight: 700;
+}
+
+[data-theme='walnut'] {
+  --bg: #17110d;
+  --bg-raise: #17110d;
+  --surface: #1f1712;
+  --surface-2: #2a2019;
+  --surface-3: #362a21;
+  --line: #2e241c;
+  --line-strong: #43352a;
+  --line-soft: #f4e9da0f;
+  --text: #f4e9da;
+  --text-soft: #e2d3bf;
+  --text-dim: #b29c84;
+  --text-faint: #7a6754;
+  --accent: #e0a95c;
+  --accent-strong: #c98f40;
+  --accent-text: #1a120c;
+  --accent-soft: #e0a95c22;
+  --sel: #e0a95c;
+  --sel-text: #1a120c;
+  --good: #8fd47e;
+  --good-soft: #8fd47e1f;
+  --good-line: #8fd47e66;
+  --bad: #ff7a5c;
+  --bad-soft: #ff7a5c1f;
+  --bad-line: #ff7a5c66;
+  --font-display: 'Fraunces', Georgia, serif;
+  --display-weight: 560;
+  --display-tracking: -0.02em;
+  --num-weight: 400;
+}
+
+[data-theme='ocean'] {
+  --bg: #07101c;
+  --bg-raise: #07101c;
+  --surface: #0c1828;
+  --surface-2: #112035;
+  --surface-3: #1a2c48;
+  --line: #142338;
+  --line-strong: #22365a;
+  --line-soft: #eaf2ff0f;
+  --text: #eaf2ff;
+  --text-soft: #c9d7ee;
+  --text-dim: #8aa0c2;
+  --text-faint: #536a8c;
+  --accent: #4cc9f0;
+  --accent-strong: #2fb3dd;
+  --accent-text: #04121e;
+  --accent-soft: #4cc9f022;
+  --sel: #4cc9f0;
+  --sel-text: #04121e;
+  --good: #3ddc97;
+  --good-soft: #3ddc971f;
+  --good-line: #3ddc9766;
+  --bad: #ff6b7a;
+  --bad-soft: #ff6b7a1f;
+  --bad-line: #ff6b7a66;
+  --display-weight: 780;
+  --display-tracking: -0.025em;
+  --num-weight: 250;
+}
+
+[data-theme='royal'] {
+  --bg: #0f0a17;
+  --bg-raise: #0f0a17;
+  --surface: #160f21;
+  --surface-2: #1e152c;
+  --surface-3: #291d3b;
+  --line: #221833;
+  --line-strong: #33264a;
+  --line-soft: #f3eefb0f;
+  --text: #f3eefb;
+  --text-soft: #dcd2ee;
+  --text-dim: #a596c2;
+  --text-faint: #66588a;
+  --accent: #e7c27d;
+  --accent-strong: #d4a956;
+  --accent-text: #1a1206;
+  --accent-soft: #e7c27d22;
+  --sel: #e7c27d;
+  --sel-text: #1a1206;
+  --good: #5fe3a1;
+  --good-soft: #5fe3a11f;
+  --good-line: #5fe3a166;
+  --bad: #ff6f91;
+  --bad-soft: #ff6f911f;
+  --bad-line: #ff6f9166;
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  --display-weight: 400;
+  --display-tracking: -0.01em;
+  --num-weight: 400;
+}
+
+[data-theme='rose'] {
+  --bg: #160d12;
+  --bg-raise: #160d12;
+  --surface: #1f121a;
+  --surface-2: #2a1823;
+  --surface-3: #36202e;
+  --line: #2c1a25;
+  --line-strong: #43283a;
+  --line-soft: #fff0f50f;
+  --text: #fff0f5;
+  --text-soft: #f3d6e1;
+  --text-dim: #c79db0;
+  --text-faint: #84606f;
+  --accent: #ff8fab;
+  --accent-strong: #ff6f94;
+  --accent-text: #2a0a14;
+  --accent-soft: #ff8fab22;
+  --sel: #ff8fab;
+  --sel-text: #2a0a14;
+  --good: #7ee0a8;
+  --good-soft: #7ee0a81f;
+  --good-line: #7ee0a866;
+  --bad: #ffb15c;
+  --bad-soft: #ffb15c1f;
+  --bad-line: #ffb15c66;
+  --font-display: 'Fraunces', Georgia, serif;
+  --display-weight: 620;
+  --display-tracking: -0.025em;
+  --num-weight: 500;
+}
+
+/* ---------------------------------------------------------------- light */
+
+[data-theme='paper'] {
+  color-scheme: light;
+  --bg: #f5f0e6;
+  --bg-raise: #f5f0e6;
+  --surface: #eee7d8;
+  --surface-2: #e7dfcd;
+  --surface-3: #dcd2bd;
+  --line: #e0d6c2;
+  --line-strong: #c9bda4;
+  --line-soft: #1c1a170d;
+  --text: #1c1a17;
+  --text-soft: #36312a;
+  --text-dim: #6e665a;
+  --text-faint: #a39a8a;
+  --accent: #1c1a17;
+  --accent-strong: #000;
+  --accent-text: #f5f0e6;
+  --accent-soft: #1c1a1712;
+  --sel: #1c1a17;
+  --sel-text: #f5f0e6;
+  --good: #1e8a4c;
+  --good-soft: #1e8a4c1a;
+  --good-line: #1e8a4c66;
+  --bad: #c2362b;
+  --bad-soft: #c2362b14;
+  --bad-line: #c2362b66;
+  --gold: #1c1a17;
+  --info: #1c1a17;
+  --violet: #1c1a17;
+  --font-display: 'Newsreader', Georgia, serif;
+  --display-weight: 500;
+  --display-tracking: -0.02em;
+  --num-weight: 400;
+}
+
+/* ---------------------------------------------------------------- accessible */
+
+[data-theme='contrast'] {
+  --bg: #000;
+  --bg-raise: #000;
+  --surface: #000;
+  --surface-2: #0d0d0d;
+  --surface-3: #262626;
+  --line: #8c8c8c;
+  --line-strong: #fff;
+  --line-soft: #ffffff40;
+  --text: #fff;
+  --text-soft: #fff;
+  --text-dim: #f0f0f0;
+  --text-faint: #d0d0d0;
+  --accent: #ffd60a;
+  --accent-strong: #ffe14d;
+  --accent-text: #000;
+  --accent-soft: #ffd60a2e;
+  --sel: #ffd60a;
+  --sel-text: #000;
+  --good: #00e676;
+  --good-soft: #00e67626;
+  --good-line: #00e676;
+  --bad: #ff4d4d;
+  --bad-soft: #ff4d4d26;
+  --bad-line: #ff4d4d;
+  --focus: #ffd60a;
+  --display-weight: 750;
+  --display-tracking: -0.005em;
+  --num-weight: 700;
+}
+
+[data-theme='contrast'] body,
+[data-theme='contrast'].theme-card {
+  font-weight: 500;
+}
+
+[data-theme='contrast'] .btn,
+[data-theme='contrast'] .list-row,
+[data-theme='contrast'] .coach-card,
+[data-theme='contrast'] .segmented,
+[data-theme='contrast'] .pill,
+[data-theme='contrast'] .chip {
+  border-width: 2px;
+}
+
+[data-theme='clear'] {
+  --bg: #101418;
+  --bg-raise: #101418;
+  --surface: #161b21;
+  --surface-2: #1d242c;
+  --surface-3: #27303a;
+  --line: #2a333d;
+  --line-strong: #4a5664;
+  --line-soft: #ffffff14;
+  --text: #f5f7fa;
+  --text-soft: #e4e9ef;
+  --text-dim: #c3ccd6;
+  --text-faint: #94a1b0;
+  --accent: #ffcc00;
+  --accent-strong: #ffd633;
+  --accent-text: #101418;
+  --accent-soft: #ffcc0026;
+  --sel: #ffcc00;
+  --sel-text: #101418;
+  --focus: #ffcc00;
+  --font-body: 'Atkinson Hyperlegible Next', 'Inter', system-ui, sans-serif;
+  --font-display: var(--font-body);
+  --display-weight: 750;
+  --display-tracking: -0.01em;
+  --num-weight: 600;
+  --base-size: 17px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+
+/* Blue for right and orange for wrong: told apart with any colour vision. */
+[data-colorblind] {
+  --good: #3b9eff;
+  --good-soft: #3b9eff22;
+  --good-line: #3b9eff88;
+  --bad: #ff9500;
+  --bad-soft: #ff950022;
+  --bad-line: #ff950088;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+[data-theme='contrast'] :focus-visible,
+[data-theme='clear'] :focus-visible {
+  outline-width: 3px;
+}
+
+/* ---------------------------------------------------------------- headlines */
+
+h1,
+.page-head h1,
+.hero h1,
+.opp-name,
+.coach-title,
+.brand-word,
+.lesson-top b,
+.finish-card h3,
+.lesson-done h2,
+.course-hero .ch-title,
+.display {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+}
+
+.big-num,
+.stat .v,
+.acc-box,
+.rating-chip,
+.opp-meta .num,
+.rush-score,
+.grade.big,
+.level-badge,
+.rating-tile .rt-v,
+.num-display {
+  font-family: var(--font-display);
+  font-weight: var(--num-weight);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* An editorial serif reads smaller than a sans at the same size. */
+[data-display='serif'] h1,
+[data-display='serif'] .page-head h1 {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+[data-display='serif'] .opp-name {
+  font-size: 3.6rem;
+  line-height: 0.95;
+}
+[data-display='serif'] .opp-tagline {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.2rem;
+}
+[data-display='serif'] .coach-title {
+  font-size: 1.85rem;
+  line-height: 1.05;
+}
+[data-display='serif'] .brand-word {
+  font-size: 1.5rem;
+}
+[data-display='serif'] .lesson-top b {
+  font-size: 1.35rem;
+}
+[data-display='serif'] .big-num {
+  font-size: 5.6rem;
+  line-height: 0.9;
+}
+[data-display='serif'] .stat .v {
+  font-size: 1.75rem;
+}
+[data-display='serif'] .acc-box {
+  font-size: 1.55rem;
+}
+[data-display='serif'] .rating-chip {
+  font-size: 1.3rem;
+}
+
+[data-display='tight'] h1,
+[data-display='tight'] .page-head h1 {
+  font-size: 2.3rem;
+  line-height: 1.02;
+}
+[data-display='tight'] .opp-name {
+  font-size: 3rem;
+  line-height: 1;
+}
+[data-display='tight'] .coach-title {
+  font-size: 1.55rem;
+  line-height: 1.08;
+}
+[data-display='tight'] .big-num {
+  letter-spacing: -0.06em;
+}
+
+[data-display='plain'] .coach-title {
+  font-size: 1.4rem;
+  line-height: 1.12;
+}
+[data-display='plain'] .opp-name {
+  font-size: 2.6rem;
+}
+
+/* Graphite's silver headlines. Coloured titles (move classifications) keep their colour. */
+[data-theme='graphite'] .page-head h1,
+[data-theme='graphite'] .opp-name,
+[data-theme='graphite'] .brand-word,
+[data-theme='graphite'] .coach-title:not([style]) {
+  background: linear-gradient(180deg, #fff 25%, #9c9c9c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme='graphite'] .coach-title.good-text {
+  background: linear-gradient(180deg, #7dffb6 20%, #2fb86c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+[data-theme='ocean'] .page-head h1,
+[data-theme='ocean'] .opp-name {
+  background: linear-gradient(180deg, #fff 20%, #7fd6f5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme='royal'] .opp-name,
+[data-theme='royal'] .page-head h1 {
+  background: linear-gradient(180deg, #fff6dd 15%, #e7c27d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------------------------------------------------------------- boards */
+
+.theme-slate cg-board {
+  background: conic-gradient(#8b95a1 0 25%, #dfe3e8 0 50%, #8b95a1 0 75%, #dfe3e8 0) 0 0 / 25% 25%;
+}
+.theme-ocean cg-board {
+  background: conic-gradient(#7096b8 0 25%, #e3eef6 0 50%, #7096b8 0 75%, #e3eef6 0) 0 0 / 25% 25%;
+}
+.theme-royal cg-board {
+  background: conic-gradient(#8a75b5 0 25%, #ece6f5 0 50%, #8a75b5 0 75%, #ece6f5 0) 0 0 / 25% 25%;
+}
+.theme-rose cg-board {
+  background: conic-gradient(#d98aa0 0 25%, #fbe4ea 0 50%, #d98aa0 0 75%, #fbe4ea 0) 0 0 / 25% 25%;
+}
+.theme-paper cg-board {
+  background: conic-gradient(#c2b59c 0 25%, #f7f3ea 0 50%, #c2b59c 0 75%, #f7f3ea 0) 0 0 / 25% 25%;
+}
+.theme-contrast cg-board {
+  background: conic-gradient(#7a7a7a 0 25%, #fff 0 50%, #7a7a7a 0 75%, #fff 0) 0 0 / 25% 25%;
+}
+.theme-clear cg-board {
+  background: conic-gradient(#7d8fa3 0 25%, #e8edf2 0 50%, #7d8fa3 0 75%, #e8edf2 0) 0 0 / 25% 25%;
+}
+
+.theme-slate cg-board square.last-move {
+  background-color: rgba(60, 110, 170, 0.32);
+}
+.theme-ocean cg-board square.last-move {
+  background-color: rgba(76, 201, 240, 0.42);
+}
+.theme-royal cg-board square.last-move {
+  background-color: rgba(231, 194, 125, 0.55);
+}
+.theme-rose cg-board square.last-move {
+  background-color: rgba(255, 143, 171, 0.5);
+}
+.theme-paper cg-board square.last-move,
+.theme-grey cg-board square.last-move {
+  background-color: rgba(28, 26, 23, 0.16);
+}
+/* Outlines instead of tints: visible whatever the square colour. */
+.theme-contrast cg-board square.last-move,
+.theme-clear cg-board square.last-move {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 4px #ffcc00;
+}
+.theme-contrast cg-board square.selected,
+.theme-clear cg-board square.selected {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 5px #00a2ff;
+}
+.theme-contrast cg-board square.move-dest,
+.theme-clear cg-board square.move-dest {
+  background: radial-gradient(rgba(0, 120, 255, 0.75) 22%, rgba(0, 0, 0, 0) 24%);
+}
+
+/* Right and wrong squares follow the feedback colours (blue and orange when colour-blind safe). */
+cg-board square.hl-right {
+  background-color: color-mix(in srgb, var(--good) 60%, transparent);
+}
+cg-board square.hl-wrong {
+  background-color: color-mix(in srgb, var(--bad) 60%, transparent);
+}
+
+.square-names {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: repeat(8, 1fr) / repeat(8, 1fr);
+  pointer-events: none;
+  z-index: 3;
+}
+.square-names span {
+  align-self: end;
+  justify-self: start;
+  padding: 0 0 2px 3px;
+  font: 700 clamp(8px, 2.3vmin, 13px) / 1 var(--font-body);
+  letter-spacing: 0;
+}
+.square-names .on-dark {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+.square-names .on-light {
+  color: rgba(20, 20, 20, 0.85);
+}
+
+/* ---------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+[data-reduce-motion] *,
+[data-reduce-motion] *::before,
+[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* ---------------------------------------------------------------- appearance page */
+
+.appearance .theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 12px;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: calc(15px * var(--text-scale));
+  line-height: 1.4;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+.theme-card:active {
+  transform: scale(0.98);
+}
+.theme-card.on {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+}
+.theme-card .mini-board {
+  border-radius: 0;
+}
+.tc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+.tc-name {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+[data-display='serif'] .tc-name {
+  font-size: 1.45rem;
+}
+.tc-blurb {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+.tc-sample {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.tc-chip {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.92em;
+  color: var(--text);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.tc-check {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.mini-board {
+  display: grid;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mini-board span {
+  position: relative;
+}
+.mini-board piece {
+  position: absolute;
+  inset: 4%;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.theme-card .mini-board {
+  aspect-ratio: 2;
+  grid-template-rows: repeat(2, 1fr);
+}
+.theme-card .mini-board span:nth-child(n + 9) {
+  display: none;
+}
+
+.swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.swatch-auto,
+.piece-option.auto {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.swatch-auto.on,
+.piece-option.auto.on {
+  background: var(--sel);
+  color: var(--sel-text);
+  border-color: var(--sel);
+}
+
+.piece-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+}
+.piece-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.piece-option.auto {
+  height: auto;
+  justify-content: center;
+  border-radius: var(--radius);
+}
+.piece-option.on {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.piece-option .mini-board {
+  width: 64px;
+}
+.po-name {
+  font-size: 0.75rem;
+}
+
+.settings-list .st-title {
+  font-weight: 600;
+}
+.settings-list .setting .desc {
+  color: var(--text-dim);
+  max-width: 46ch;
+}
+
+.credits {
+  margin-top: 24px;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+.credits summary {
+  cursor: pointer;
+}
+.credits ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+/* Classification colours are made for dark backgrounds; darken them on paper. */
+[data-theme='paper'] .coach-title[style],
+[data-theme='paper'] .lesson-item b[style] {
+  filter: brightness(0.68) saturate(1.3);
+}

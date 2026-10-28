@@ -4,19 +4,10 @@ import { canUseThreads, hardwareThreads } from '../lib/engine/manager';
 import { exportAll, importAll, wipeAll, type Backup } from '../lib/storage/db';
 import { useLearn } from '../state/learn';
 import { useProfile } from '../state/profile';
-import { useSettings, type BoardTheme } from '../state/settings';
+import { useSettings } from '../state/settings';
+import { themeOf } from '../lib/appearance';
 import { saveTextFile } from '../lib/platform';
-import { PageHead } from '../components/ui';
-
-const THEMES: { id: BoardTheme; light: string; dark: string }[] = [
-  { id: 'mono', light: '#e6e6e6', dark: '#9e9e9e' },
-  { id: 'green', light: '#eeeed2', dark: '#769656' },
-  { id: 'brown', light: '#f0d9b5', dark: '#b58863' },
-  { id: 'blue', light: '#eae9d2', dark: '#4b7399' },
-  { id: 'purple', light: '#efefef', dark: '#8877b7' },
-  { id: 'grey', light: '#dcdcdc', dark: '#8a8a8a' },
-  { id: 'ice', light: '#dbe9f4', dark: '#7ca6c4' },
-];
+import { ListRow, PageHead } from '../components/ui';
 
 function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -65,22 +56,12 @@ export function SettingsPage() {
   return (
     <div className="page">
       <PageHead title="Settings" back="/you" />
+      <div className="list" style={{ marginBottom: 16 }}>
+        <ListRow title="Appearance" sub={`${themeOf(s.theme).name} theme · boards, pieces, text size and colour-blind options`} href="/appearance" />
+      </div>
       <div className="settings-grid">
         <section className="card">
           <h2>Board</h2>
-          <Row title="Theme">
-            <div className="row" style={{ gap: 6 }}>
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  className={`theme-swatch ${s.boardTheme === t.id ? 'on' : ''}`}
-                  style={{ background: `conic-gradient(${t.dark} 0 25%, ${t.light} 0 50%, ${t.dark} 0 75%, ${t.light} 0) 0 0 / 50% 50%` }}
-                  onClick={() => s.set({ boardTheme: t.id })}
-                  aria-label={t.id}
-                />
-              ))}
-            </div>
-          </Row>
           <Row title="Coordinates">
             <Toggle checked={s.coordinates} onChange={(coordinates) => s.set({ coordinates })} />
           </Row>

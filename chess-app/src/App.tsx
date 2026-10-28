@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { BookOpen, ChessKnight, Download, GraduationCap, History, Microscope, Puzzle, Settings, UserRound } from 'lucide-react';
 import { Logo } from './components/Widgets';
 import { navigate, useRoute } from './lib/router';
@@ -14,6 +14,7 @@ import { GamesPage } from './pages/Games';
 import { PracticePage } from './pages/Practice';
 import { ImportPage } from './pages/Import';
 import { SettingsPage } from './pages/Settings';
+import { AppearancePage } from './pages/Appearance';
 import { LearnPage } from './pages/Learn';
 import { LessonPage } from './pages/Lesson';
 import { PuzzlesPage } from './pages/Puzzles';
@@ -60,6 +61,11 @@ function isFocus(parts: string[]): boolean {
 
 export function App() {
   const route = useRoute();
+  const main = useRef<HTMLElement>(null);
+  // Each screen opens at the top, not wherever the previous one was scrolled to.
+  useEffect(() => {
+    main.current?.scrollTo(0, 0);
+  }, [route.path]);
   const live = useLiveGame((s) => s.game);
   useEffect(() => {
     void loadOpeningBook();
@@ -112,6 +118,9 @@ export function App() {
     case 'settings':
       page = <SettingsPage />;
       break;
+    case 'appearance':
+      page = <AppearancePage />;
+      break;
     default:
       page = (
         <div className="page empty">
@@ -146,7 +155,9 @@ export function App() {
         ))}
         <div className="sidebar-foot">Stockfish 18 · runs on your device</div>
       </nav>
-      <main className="main">{page}</main>
+      <main className="main" ref={main}>
+        {page}
+      </main>
       <nav className="tabbar">
         {TABS.map((t) => (
           <a key={t.path} href={href(t)} className={`tab ${t.match(route.path) ? 'active' : ''}`}>

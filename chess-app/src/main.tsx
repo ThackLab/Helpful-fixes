@@ -2,10 +2,25 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles/app.css';
+import './styles/themes.css';
 import { isAndroidApp } from './lib/platform';
-import { loadFont } from './lib/font';
+import { applyAppearance } from './lib/appearance';
+import { useSettings } from './state/settings';
 
-loadFont();
+// Apply the saved theme before the first paint, then follow changes.
+applyAppearance(useSettings.getState());
+useSettings.subscribe((s, prev) => {
+  if (
+    s.theme !== prev.theme ||
+    s.boardTheme !== prev.boardTheme ||
+    s.pieceSet !== prev.pieceSet ||
+    s.textSize !== prev.textSize ||
+    s.colorblind !== prev.colorblind ||
+    s.squareNames !== prev.squareNames ||
+    s.reduceMotion !== prev.reduceMotion
+  )
+    applyAppearance(s);
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

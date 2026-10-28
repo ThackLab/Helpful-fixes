@@ -1,5 +1,18 @@
 import { useMemo } from 'react';
-import { BookOpen, Check, ChessKnight, Download, Flame, GraduationCap, History, Microscope, Puzzle, Settings, UserRound } from 'lucide-react';
+import {
+  BookOpen,
+  Check,
+  ChessKnight,
+  Download,
+  Flame,
+  GraduationCap,
+  History,
+  Microscope,
+  Puzzle,
+  Palette,
+  Settings,
+  UserRound,
+} from 'lucide-react';
 import { LEVELS, currentLevel, levelPassed } from '../lib/learn/levels';
 import { findLesson } from '../lib/learn/curriculum';
 import { navigate } from '../lib/router';
@@ -208,6 +221,7 @@ export function YouPage() {
         />
         <ListRow icon={<Microscope size={20} />} title="Analysis board" sub="Engine lines, variations, PGN and FEN" href="/analysis" />
         <ListRow icon={<Download size={20} />} title="Import games" sub="From chess.com, lichess or a PGN" href="/import" />
+        <ListRow icon={<Palette size={20} />} title="Appearance" sub="Themes, boards, pieces and text size" href="/appearance" />
         <ListRow icon={<Settings size={20} />} title="Settings" sub="Board, sound, engine and data" href="/settings" />
       </div>
     </div>
