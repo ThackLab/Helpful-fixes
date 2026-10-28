@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 // Hash-based routing: works from any static host (GitHub Pages, file shares).
 
@@ -23,8 +23,11 @@ export function navigate(to: string, opts: { replace?: boolean } = {}) {
 
 export function useRoute(): Route {
   const [route, setRoute] = useState(parse);
-  useEffect(() => {
-    const on = () => setRoute(parse());
+  // A layout effect subscribes before any page's own effects run, so a page that
+  // redirects as soon as it opens is followed; anything missed is caught up here.
+  useLayoutEffect(() => {
+    const on = () => setRoute((r) => (r.path + r.query.toString() === parse().path + parse().query.toString() ? r : parse()));
+    on();
     window.addEventListener('hashchange', on);
     window.addEventListener('popstate', on);
     return () => {

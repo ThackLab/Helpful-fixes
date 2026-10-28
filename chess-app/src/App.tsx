@@ -16,6 +16,7 @@ import { ImportPage } from './pages/Import';
 import { SettingsPage } from './pages/Settings';
 import { AppearancePage } from './pages/Appearance';
 import { InsightsPage } from './pages/Insights';
+import { FriendBoard, FriendHome, FriendJoin } from './pages/Friend';
 import { LearnPage } from './pages/Learn';
 import { LessonPage } from './pages/Lesson';
 import { PuzzlesPage } from './pages/Puzzles';
@@ -55,6 +56,7 @@ const TOOLS: Tab[] = [
 function isFocus(parts: string[]): boolean {
   const [root, id] = parts;
   if (root === 'game' || root === 'review' || root === 'tactics' || root === 'exam') return true;
+  if (root === 'friend' && id && id !== 'join') return true;
   if (root === 'learn' && id) return true;
   if (root === 'puzzles' && id) return true;
   return false;
@@ -124,6 +126,9 @@ export function App() {
       break;
     case 'insights':
       page = <InsightsPage />;
+      break;
+    case 'friend':
+      page = id === 'join' ? <FriendJoin d={route.query.get('d')} /> : id ? <FriendBoard key={id} id={id} /> : <FriendHome />;
       break;
     default:
       page = (

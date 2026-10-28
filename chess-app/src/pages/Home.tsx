@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronRight, Flame, SlidersHorizontal } from 'lucide-react';
+import { Check, ChevronRight, Flame, SlidersHorizontal, Users } from 'lucide-react';
 import { navigate } from '../lib/router';
 import { BOTS, findBot, monogram } from '../lib/bots/bots';
 import { Logo, Segmented, Toggle } from '../components/Widgets';
@@ -133,6 +133,9 @@ export function HomePage() {
               <SlidersHorizontal size={18} />
             </button>
           </div>
+          <button className="btn ghost block friend-link" onClick={() => navigate('/friend')}>
+            <Users size={16} /> Play a friend
+          </button>
         </section>
       )}
 
