@@ -121,7 +121,6 @@ export const useReviewer = create<ReviewerStore>()((set, get) => ({
         multipv: 3,
         maxTimeMs: depth >= 20 ? 12000 : 6000,
         cache: { get: getEval, put: putEval },
-        quickDepth: Math.max(10, depth - 4),
         signal: ctrl.signal,
         onProgress: (done, tot) => update({ done, total: tot }),
         onPosition: (i, pos) => {

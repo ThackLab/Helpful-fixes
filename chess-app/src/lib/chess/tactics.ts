@@ -17,21 +17,109 @@ function pieceAt(board: Board, sq: Square): Placed | null {
 /**
  * Static exchange evaluation: the material the side to move can win by
  * starting a capture sequence on `square` (never negative - it may decline).
- * Uses real legal moves so pins and x-rays are handled correctly.
+ * Each side captures with its least valuable piece that can legally do so, so
+ * pins, checks and x-rays are handled. Works on a plain array rather than
+ * through chess.js move generation, which is far too slow to run for every
+ * piece of every position in a review.
  */
-export function see(chess: Chess, square: Square, depth = 0): number {
-  const target = chess.get(square);
-  if (!target || depth > 12) return 0;
-  const caps = chess.moves({ verbose: true }).filter((m) => m.to === square);
-  if (!caps.length) return 0;
-  caps.sort((a, b) => value(a.piece) - value(b.piece) || (b.promotion ? 1 : 0) - (a.promotion ? 1 : 0));
-  const cap = caps[0];
-  const gainedPromotion = cap.promotion ? PIECE_VALUE[cap.promotion] - 1 : 0;
-  if (target.type === 'k') return 100;
-  chess.move(cap);
-  const reply = see(chess, square, depth + 1);
-  chess.undo();
-  return Math.max(0, PIECE_VALUE[target.type] + gainedPromotion - reply);
+export function see(chess: Chess, square: Square): number {
+  const grid: Cell[] = new Array(64).fill(null);
+  const kings: Record<Color, number> = { w: -1, b: -1 };
+  chess.board().forEach((row, r) =>
+    row.forEach((p, f) => {
+      if (!p) return;
+      const i = (7 - r) * 8 + f;
+      grid[i] = { type: p.type, color: p.color };
+      if (p.type === 'k') kings[p.color] = i;
+    }),
+  );
+  return exchange(grid, kings, sqIndex(square), chess.turn(), 0);
+}
+
+type Cell = { type: PieceSymbol; color: Color } | null;
+const sqIndex = (sq: Square) => (+sq[1] - 1) * 8 + (sq.charCodeAt(0) - 97);
+const KNIGHT_STEPS = [
+  [1, 2],
+  [2, 1],
+  [-1, 2],
+  [-2, 1],
+  [1, -2],
+  [2, -1],
+  [-1, -2],
+  [-2, -1],
+];
+const KING_STEPS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
+
+/** Squares of the pieces of `by` attacking square `i`. */
+function attackersOf(grid: Cell[], i: number, by: Color): number[] {
+  const f = i % 8;
+  const r = i >> 3;
+  const out: number[] = [];
+  const at = (df: number, dr: number) => {
+    const nf = f + df;
+    const nr = r + dr;
+    return nf < 0 || nf > 7 || nr < 0 || nr > 7 ? -1 : nr * 8 + nf;
+  };
+  const pawnRank = by === 'w' ? -1 : 1;
+  for (const df of [-1, 1]) {
+    const j = at(df, pawnRank);
+    if (j >= 0 && grid[j]?.type === 'p' && grid[j]!.color === by) out.push(j);
+  }
+  for (const [df, dr] of KNIGHT_STEPS) {
+    const j = at(df, dr);
+    if (j >= 0 && grid[j]?.type === 'n' && grid[j]!.color === by) out.push(j);
+  }
+  for (const [df, dr] of KING_STEPS) {
+    const diagonal = df !== 0 && dr !== 0;
+    for (let k = 1; ; k++) {
+      const j = at(df * k, dr * k);
+      if (j < 0) break;
+      const p = grid[j];
+      if (!p) continue;
+      if (p.color === by && (p.type === 'q' || p.type === (diagonal ? 'b' : 'r') || (k === 1 && p.type === 'k'))) out.push(j);
+      break;
+    }
+  }
+  return out;
+}
+
+function exchange(grid: Cell[], kings: Record<Color, number>, sq: number, side: Color, depth: number): number {
+  const target = grid[sq];
+  if (!target || target.color === side || depth > 12) return 0;
+  const them = other(side);
+  const candidates = attackersOf(grid, sq, side).sort((a, b) => value(grid[a]!.type) - value(grid[b]!.type));
+  for (const from of candidates) {
+    const piece = grid[from]!;
+    const promotes = piece.type === 'p' && (sq >> 3 === 7 || sq >> 3 === 0);
+    grid[sq] = promotes ? { type: 'q', color: side } : piece;
+    grid[from] = null;
+    const kingFrom = kings[side];
+    if (piece.type === 'k') kings[side] = sq;
+    // A capture that leaves the own king attacked is illegal: try the next piece.
+    const legal = kings[side] < 0 || !attackersOf(grid, kings[side], them).length;
+    let result = 0;
+    if (legal) {
+      if (target.type === 'k') result = 100;
+      else {
+        const reply = exchange(grid, kings, sq, them, depth + 1);
+        result = Math.max(0, PIECE_VALUE[target.type] + (promotes ? PIECE_VALUE.q - 1 : 0) - reply);
+      }
+    }
+    grid[from] = piece;
+    grid[sq] = target;
+    kings[side] = kingFrom;
+    if (legal) return result;
+  }
+  return 0;
 }
 
 /** Position with the other side to move (en passant cleared). Null when that would be illegal. */
@@ -278,16 +366,11 @@ export function moveMotifs(fenBefore: string, uci: string, recaptureSquare?: str
   // Threatens mate next move?
   if (!givesCheck) {
     const flipped = flipTurn(chess);
-    if (flipped) {
-      for (const mv of flipped.moves({ verbose: true })) {
-        flipped.move(mv);
-        const mate = flipped.isCheckmate();
-        flipped.undo();
-        if (mate) {
-          out.push({ kind: 'threatensMate', text: `threatens checkmate with ${mv.san}`, squares: [mv.from, mv.to] });
-          break;
-        }
-      }
+    // SAN marks a mating move with "#", which is much cheaper than playing out every move.
+    const mateSan = flipped?.moves().find((san) => san.endsWith('#'));
+    if (flipped && mateSan) {
+      const mv = flipped.move(mateSan);
+      out.push({ kind: 'threatensMate', text: `threatens checkmate with ${mv.san}`, squares: [mv.from, mv.to] });
     }
   }
 

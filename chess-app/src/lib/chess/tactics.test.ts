@@ -12,6 +12,16 @@ describe('static exchange evaluation', () => {
     expect(see(new Chess('4k3/8/4p3/3p4/8/8/3Q4/4K3 w - - 0 1'), 'd5')).toBe(0);
   });
 
+  it('respects pins, x-rays and promotions', () => {
+    // The knight on e3 is pinned to the king by the rook on e8, so it can't take on d5.
+    expect(see(new Chess('4r1k1/8/8/3p4/8/4N3/8/4K3 w - - 0 1'), 'd5')).toBe(0);
+    expect(see(new Chess('6k1/8/8/3p4/8/4N3/8/4K3 w - - 0 1'), 'd5')).toBe(1);
+    // Doubled rooks: RxP, RxR, RxR wins the pawn.
+    expect(see(new Chess('3r2k1/8/8/3p4/8/8/3R4/3R2K1 w - - 0 1'), 'd5')).toBe(1);
+    // Taking with a pawn on the last rank makes a queen.
+    expect(see(new Chess('2n3k1/1P6/8/8/8/8/8/6K1 w - - 0 1'), 'c8')).toBe(11);
+  });
+
   it('finds hanging pieces for the side not to move', () => {
     const chess = new Chess('4k3/8/8/3n4/4P3/8/8/4K3 w - - 0 1');
     const h = hangingPieces(chess, 'b');
