@@ -8,6 +8,7 @@ import { useSolver } from '../components/useSolver';
 import { findLesson, type DrillStep, type LessonStep, type PuzzleStep, type QuizStep } from '../lib/learn/curriculum';
 import { explainPuzzle, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
 import { levelOfLesson, starsFor } from '../lib/learn/levels';
+import { COURSES, courseOfLesson } from '../lib/learn/courses';
 import { getAnalysisEngine } from '../lib/engine/manager';
 import { legalDests, moveToUci, playUci, sanLine } from '../lib/chess/utils';
 import { navigate } from '../lib/router';
@@ -53,9 +54,12 @@ const STEP_LABEL: Record<LessonStep['kind'], string> = {
 };
 const PRACTICE_SIZE = 5;
 
-export function LessonPage({ id }: { id: string }) {
+export function LessonPage({ id, courseId }: { id: string; courseId?: string | null }) {
   const lesson = findLesson(id);
-  const level = levelOfLesson(id);
+  // Opened from a course, the lesson belongs to that course; otherwise to its level, if it has one.
+  const fromCourse = COURSES.find((c) => c.id === courseId && c.lessons.includes(id));
+  const level = fromCourse ? undefined : levelOfLesson(id);
+  const course = fromCourse ?? (level ? undefined : courseOfLesson(id));
   const reach = useLearn((s) => s.reach);
   const finishLesson = useLearn((s) => s.finishLesson);
   const record = useLearn((s) => s.record);
@@ -76,7 +80,12 @@ export function LessonPage({ id }: { id: string }) {
     if (!bank || !lesson || practice) return;
     setPractice(
       lesson.themes.length
-        ? pickSet(bank, { themes: lesson.themes, band: level?.band ?? [400, 1600], n: PRACTICE_SIZE, recent: useLearn.getState().recent })
+        ? pickSet(bank, {
+            themes: lesson.themes,
+            band: (level ?? levelOfLesson(lesson.id))?.band ?? [400, 1600],
+            n: PRACTICE_SIZE,
+            recent: useLearn.getState().recent,
+          })
         : [],
     );
   }, [bank, lesson, level, practice]);
@@ -150,9 +159,10 @@ export function LessonPage({ id }: { id: string }) {
       </div>
     );
 
-  const levelLessons = level?.lessons ?? [];
-  const nextId = levelLessons[levelLessons.indexOf(lesson.id) + 1];
+  const pathLessons = course?.lessons ?? level?.lessons ?? [];
+  const nextId = pathLessons[pathLessons.indexOf(lesson.id) + 1];
   const nextLesson = nextId ? findLesson(nextId) : undefined;
+  const lessonHref = (lessonId: string) => `/learn/${lessonId}${course ? `?course=${course.id}` : ''}`;
   const walk = step?.kind === 'walk' ? step : null;
   const quiz = step?.kind === 'quiz' ? step : null;
   const tapStep = step?.kind === 'tap' ? step : null;
@@ -232,7 +242,17 @@ export function LessonPage({ id }: { id: string }) {
     board = { fen: c.fen(), lastMove: lastOf(pickedOption?.uci), check: c.inCheck(), shapes: arrowShapes(pickedOption?.arrows) };
   }
   const interactive = !!(puzzle || practicePuzzle);
-  const orientation = practicePuzzle && solver.solver === 'b' ? 'black' : puzzle && puzzle.fen.split(' ')[1] === 'b' ? 'black' : 'white';
+  const toMove = (fen: string) => (fen.split(' ')[1] === 'b' ? 'black' : 'white');
+  const orientation =
+    practicePuzzle && solver.solver === 'b'
+      ? 'black'
+      : puzzle
+        ? toMove(puzzle.fen)
+        : quiz || tapStep
+          ? ((quiz ?? tapStep)!.orientation ?? toMove((quiz ?? tapStep)!.fen))
+          : step?.kind === 'info' || step?.kind === 'walk'
+            ? (step.orientation ?? 'white')
+            : 'white';
 
   return (
     <div className="game-layout focus-screen lesson-screen">
@@ -372,7 +392,13 @@ export function LessonPage({ id }: { id: string }) {
           ) : drillStep ? (
             <StepCard step={drillStep} label={STEP_LABEL.drill} text={drillDone ? drillStep.success : drillStep.text}>
               <p className={`coach-text ${drill.status === 'lost' ? 'wrong-text' : 'faint'}`}>
-                {drill.status === 'won' ? 'Done!' : drill.status === 'lost' ? drill.note : `Move ${drill.moveNo} of ${drillStep.maxMoves}`}
+                {drill.status === 'won'
+                  ? drillStep.goal === 'hold'
+                    ? 'Held!'
+                    : 'Done!'
+                  : drill.status === 'lost'
+                    ? drill.note
+                    : `Move ${drill.moveNo} of ${drillStep.maxMoves}${drillStep.goal === 'hold' ? ': keep it drawn' : ''}`}
               </p>
               {(drill.status === 'lost' || drill.status === 'won' || drill.moveNo > 1) && (
                 <div className="row">
@@ -400,10 +426,18 @@ export function LessonPage({ id }: { id: string }) {
               </button>
               <button
                 className="ctl wide go"
-                onClick={() => navigate(nextLesson ? `/learn/${nextLesson.id}` : level ? `/exam/${level.id}` : '/learn')}
+                onClick={() => navigate(nextLesson ? lessonHref(nextLesson.id) : level ? `/exam/${level.id}` : '/learn')}
               >
                 <span className="ctl-ico">{nextLesson ? <ChevronRight size={22} /> : <Trophy size={20} />}</span>
-                <span className="ctl-label">{nextLesson ? `Next: ${nextLesson.title}` : level ? `Level ${level.n} exam` : 'Back to the course'}</span>
+                <span className="ctl-label">
+                  {nextLesson
+                    ? `Next: ${nextLesson.title}`
+                    : level
+                      ? `Level ${level.n} exam`
+                      : course
+                        ? `${course.name} course done`
+                        : 'Back to the course'}
+                </span>
               </button>
             </>
           ) : (
@@ -663,26 +697,42 @@ function useDrill(step: DrillStep | null) {
     const played = [...moves, moveToUci(mv)];
     setMoves(played);
     playSound(soundForSan(mv.san));
-    if (c.isCheckmate()) return win();
+    const hold = step.goal === 'hold';
+    const slip = (why: string) => fail(step.hint ? `${why} ${step.hint}` : why);
+    if (c.isCheckmate()) return hold ? fail('Checkmate! Not this time.') : win();
     if (step.goal === 'promote' && mv.promotion && !c.moves({ verbose: true }).some((m) => m.to === mv.to)) return win();
-    if (c.isStalemate()) return fail('Stalemate – that’s a draw. Always leave the king a square until you can mate.');
-    if (c.isDraw()) return fail('That’s a draw. Try again.');
-    if (Math.ceil(played.length / 2) >= step.maxMoves) return fail(`Out of moves – you had ${step.maxMoves}. Try again, a little more directly.`);
+    if (c.isDraw()) {
+      if (hold) return win();
+      return fail(c.isStalemate() ? 'Stalemate – that’s a draw. Always leave the king a square until you can mate.' : 'That’s a draw. Try again.');
+    }
+    const movesDone = Math.ceil(played.length / 2);
+    if (!hold && movesDone >= step.maxMoves) return fail(`Out of moves – you had ${step.maxMoves}. Try again, a little more directly.`);
     setStatus('thinking');
     const r = await getAnalysisEngine().analyse({ fen: c.fen(), limits: { depth: 14, movetime: 700 } });
     if (token.current !== t) return;
+    // How the position stands for you after your move: a winning drill fails once the win is gone,
+    // a drawing drill once the position is lost.
+    const score = r.lines[0]?.score;
+    if (score) {
+      const sign = userColor === 'w' ? 1 : -1;
+      const mine = score.type === 'mate' ? (score.value * sign > 0 ? 100000 : -100000) : score.value * sign;
+      if (hold && mine <= -200) return slip('That move loses.');
+      if (!hold && mine < 100) return slip('That lets the win slip away.');
+    }
+    if (hold && movesDone >= step.maxMoves) return win();
     const reply = r.lines[0]?.pv[0] ?? r.bestmove;
     if (!reply) return;
     const m2 = playUci(c, reply);
     setMoves([...played, reply]);
     playSound(soundForSan(m2?.san ?? ''));
+    if (c.isCheckmate()) return fail('Checkmate. Try again.');
     if (!c.board().some((row) => row.some((p) => p && p.color === userColor && p.type !== 'k')))
       return fail(
         step.goal === 'promote'
           ? 'Your pawn was captured. Lead with the king and take the opposition.'
           : `Stockfish took your ${m2?.captured === 'q' ? 'queen' : m2?.captured === 'r' ? 'rook' : 'piece'}. Keep it protected or out of the king’s reach.`,
       );
-    if (c.isDraw()) return fail('That’s a draw. Try again.');
+    if (c.isDraw()) return hold ? win() : fail('That’s a draw. Try again.');
     setStatus('play');
   };
 

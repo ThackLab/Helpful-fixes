@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/Settings';
 import { AppearancePage } from './pages/Appearance';
 import { InsightsPage } from './pages/Insights';
 import { FriendBoard, FriendHome, FriendJoin } from './pages/Friend';
+import { OpeningDrill, OpeningsPage } from './pages/Openings';
 import { LearnPage } from './pages/Learn';
 import { LessonPage } from './pages/Lesson';
 import { PuzzlesPage } from './pages/Puzzles';
@@ -57,6 +58,7 @@ function isFocus(parts: string[]): boolean {
   const [root, id] = parts;
   if (root === 'game' || root === 'review' || root === 'tactics' || root === 'exam') return true;
   if (root === 'friend' && id && id !== 'join') return true;
+  if (root === 'openings' && id) return true;
   if (root === 'learn' && id) return true;
   if (root === 'puzzles' && id) return true;
   return false;
@@ -101,7 +103,7 @@ export function App() {
       page = <PracticePage />;
       break;
     case 'learn':
-      page = id ? <LessonPage key={id} id={id} /> : <LearnPage />;
+      page = id ? <LessonPage key={id} id={id} courseId={route.query.get('course')} /> : <LearnPage />;
       break;
     case 'exam':
       page = <ExamPage key={id} levelId={id ?? 'placement'} />;
@@ -126,6 +128,9 @@ export function App() {
       break;
     case 'insights':
       page = <InsightsPage />;
+      break;
+    case 'openings':
+      page = id ? <OpeningDrill key={id} id={id} /> : <OpeningsPage />;
       break;
     case 'friend':
       page = id === 'join' ? <FriendJoin d={route.query.get('d')} /> : id ? <FriendBoard key={id} id={id} /> : <FriendHome />;

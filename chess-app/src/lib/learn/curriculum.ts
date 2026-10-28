@@ -3,8 +3,13 @@
 import type { PuzzleTheme } from './tags';
 import { EXTRA_LESSONS } from './lessons2';
 import { withPatterns } from './patterns';
+import { STRATEGY_LESSONS } from './strategy';
+import { ENDGAME_LESSONS } from './endgames';
 
 /** Arrows are UCI-style square pairs, optionally prefixed with a brush: "r:" red, "b:" blue, "y:" yellow (default green). */
+/** Which way up the board is: by default White's side for ideas and examples, the side to move for questions. */
+export type Orientation = 'white' | 'black';
+
 export interface InfoStep {
   kind: 'info';
   title: string;
@@ -12,6 +17,7 @@ export interface InfoStep {
   fen: string;
   arrows?: string[];
   marks?: string[];
+  orientation?: Orientation;
 }
 
 /** A narrated sequence: each "Next" plays one move. */
@@ -21,6 +27,7 @@ export interface WalkStep {
   text: string;
   fen: string;
   moves: { uci: string; text: string; arrows?: string[] }[];
+  orientation?: Orientation;
 }
 
 /** Find the move(s). `line` alternates your moves and the replies, starting and ending with yours. */
@@ -44,10 +51,13 @@ export interface DrillStep {
   title: string;
   text: string;
   fen: string;
-  goal: 'mate' | 'promote';
-  /** Moves allowed before the drill counts as failed. */
+  /** Mate, promote safely, or hold the draw for `maxMoves` moves. */
+  goal: 'mate' | 'promote' | 'hold';
+  /** Moves allowed before the drill counts as failed (for 'hold': moves to survive). */
   maxMoves: number;
   success: string;
+  /** Shown when a move throws the result away. */
+  hint?: string;
 }
 
 /** Multiple choice. Options with a move show it on the board when picked. */
@@ -57,6 +67,7 @@ export interface QuizStep {
   text: string;
   fen: string;
   options: { label: string; uci?: string; correct?: boolean; why: string; arrows?: string[] }[];
+  orientation?: Orientation;
 }
 
 /** The tactic in four parts, shown at the start of a tactics lesson. */
@@ -87,13 +98,14 @@ export interface TapStep {
   success: string;
   /** Shown once it is solved. */
   arrows?: string[];
+  orientation?: Orientation;
 }
 
 export type LessonStep = InfoStep | WalkStep | PuzzleStep | DrillStep | QuizStep | PatternStep | TapStep;
 
 export interface Lesson {
   id: string;
-  group: 'Basics' | 'Tactics' | 'Checkmate patterns' | 'Openings' | 'Endgames';
+  group: 'Basics' | 'Tactics' | 'Checkmate patterns' | 'Openings' | 'Strategy' | 'Endgames';
   title: string;
   icon: string;
   summary: string;
@@ -908,9 +920,9 @@ const BASE_LESSONS: Lesson[] = [
   },
 ];
 
-export const LESSONS: Lesson[] = [...BASE_LESSONS, ...EXTRA_LESSONS].map(withPatterns);
+export const LESSONS: Lesson[] = [...BASE_LESSONS, ...EXTRA_LESSONS, ...STRATEGY_LESSONS, ...ENDGAME_LESSONS].map(withPatterns);
 
-export const LESSON_GROUPS: Lesson['group'][] = ['Basics', 'Tactics', 'Checkmate patterns', 'Openings', 'Endgames'];
+export const LESSON_GROUPS: Lesson['group'][] = ['Basics', 'Tactics', 'Checkmate patterns', 'Openings', 'Strategy', 'Endgames'];
 
 export const findLesson = (id: string) => LESSONS.find((l) => l.id === id);
 

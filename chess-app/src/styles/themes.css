@@ -1305,3 +1305,79 @@ cg-board square.hl-wrong {
 [data-display='serif'] .coach-banner .display {
   font-size: 1.9rem;
 }
+
+/* ---------------------------------------------------------------- openings */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.opening-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.or-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 14px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.or-name {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  font-size: 1.15rem;
+}
+[data-display='serif'] .or-name {
+  font-size: 1.45rem;
+}
+.or-sub {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+}
+.or-blurb {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.or-stats {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+.rep-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.rep-note .btn {
+  justify-self: start;
+}
+
+/* ---- Courses on the Learn page (strategy, endgames) */
+.course-title {
+  margin-top: 64px;
+}
+.course-block .level-head {
+  align-items: center;
+}
+.course-block .level-badge {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.course-block {
+  scroll-margin-top: 16px;
+}

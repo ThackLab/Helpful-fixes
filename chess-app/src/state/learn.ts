@@ -35,18 +35,19 @@ export interface DayLog {
   exams: number;
   practice: number;
   rush: number;
+  openings: number;
 }
 
-const emptyDay = (): DayLog => ({ date: today(), puzzles: 0, lessons: 0, exams: 0, practice: 0, rush: 0 });
+const emptyDay = (): DayLog => ({ date: today(), puzzles: 0, lessons: 0, exams: 0, practice: 0, rush: 0, openings: 0 });
 
 /** Today's log with one counter moved on. */
 function logged(day: DayLog | undefined, key: Exclude<keyof DayLog, 'date'>): { day: DayLog } {
   const d = day?.date === today() ? day : emptyDay();
-  return { day: { ...d, [key]: d[key] + 1 } };
+  return { day: { ...d, [key]: (d[key] ?? 0) + 1 } };
 }
 
 /** Today's activity (empty if nothing was done yet today). */
-export const todayLog = (day: DayLog | undefined): DayLog => (day?.date === today() ? day : emptyDay());
+export const todayLog = (day: DayLog | undefined): DayLog => (day?.date === today() ? { ...emptyDay(), ...day } : emptyDay());
 const dayBefore = (d: string) => new Date(new Date(d).getTime() - 86_400_000).toISOString().slice(0, 10);
 
 interface LearnState {
@@ -78,6 +79,8 @@ interface LearnState {
   recordRush: (score: number) => boolean;
   /** A position from your games was practised. */
   notePractice: () => void;
+  /** An opening line was drilled. */
+  noteOpening: () => void;
   reset: () => void;
 }
 
@@ -187,6 +190,7 @@ export const useLearn = create<LearnState>()(
         return best;
       },
       notePractice: () => set((s) => ({ ...touched(s), ...logged(s.day, 'practice') })),
+      noteOpening: () => set((s) => ({ ...touched(s), ...logged(s.day, 'openings') })),
       reset: () => set(fresh),
     }),
     {

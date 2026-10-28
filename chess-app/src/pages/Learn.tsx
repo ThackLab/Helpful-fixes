@@ -1,5 +1,6 @@
-import { Check, Compass, Lock, Trophy } from 'lucide-react';
+import { BookOpen, Check, Compass, Crown, Lock, Map as MapIcon, Trophy } from 'lucide-react';
 import { findLesson } from '../lib/learn/curriculum';
+import { COURSES, type Course } from '../lib/learn/courses';
 import {
   EXAM_PASS,
   EXAM_SIZE,
@@ -14,7 +15,9 @@ import {
 } from '../lib/learn/levels';
 import { useTrainingFocus } from '../lib/learn/focus';
 import { navigate } from '../lib/router';
-import { Grade, PageHead, Ring, Stars } from '../components/ui';
+import { Grade, ListRow, PageHead, Ring, Stars } from '../components/ui';
+import { useRepertoire } from '../state/repertoire';
+import { dueLines, usePackLines } from './Openings';
 import { useLearn } from '../state/learn';
 
 function LevelBlock({ level, index }: { level: Level; index: number }) {
@@ -97,6 +100,54 @@ function LevelBlock({ level, index }: { level: Level; index: number }) {
   );
 }
 
+const COURSE_ICON: Record<string, typeof Crown> = { strategy: MapIcon, endgames: Crown };
+
+/** A course outside the levels: every lesson is open from the start. */
+function CourseBlock({ course }: { course: Course }) {
+  const learn = useLearn();
+  const done = course.lessons.filter((id) => learn.lessons[id]?.done).length;
+  const nextId = course.lessons.find((id) => !learn.lessons[id]?.done);
+  const Icon = COURSE_ICON[course.id] ?? BookOpen;
+  return (
+    <section className="level-block course-block" id={course.id}>
+      <div className="level-head">
+        <span className="level-badge">
+          <Icon size={18} />
+        </span>
+        <div className="lh-body">
+          <div className="lh-title">{course.name}</div>
+          <div className="lh-sub">{course.goal}</div>
+        </div>
+        <span className="pill">
+          {done}/{course.lessons.length}
+        </span>
+      </div>
+      <div className="path">
+        {course.lessons.map((id, j) => {
+          const lesson = findLesson(id);
+          if (!lesson) return null;
+          const p = learn.lessons[id];
+          const current = id === nextId && done > 0;
+          return (
+            <button
+              key={id}
+              className={`path-node ${p?.done ? 'done' : 'open'} ${current ? 'current' : ''}`}
+              onClick={() => navigate(`/learn/${id}?course=${course.id}`)}
+            >
+              <span className="pn-dot">{p?.done ? <Check size={15} strokeWidth={2.5} /> : j + 1}</span>
+              <span className="pn-body">
+                <span className="pn-title">{lesson.title}</span>
+                <span className="pn-sub">{lesson.summary}</span>
+              </span>
+              <span className="pn-end">{p?.done ? <Stars n={p.stars ?? 1} /> : current ? <span className="pill accent">Next</span> : null}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function LearnPage() {
   const learn = useLearn();
   const focus = useTrainingFocus();
@@ -104,6 +155,9 @@ export function LearnPage() {
   const level = step.kind === 'done' ? LEVELS[LEVELS.length - 1] : step.level;
   const prog = levelProgress(learn, level);
   const lesson = step.kind === 'lesson' ? findLesson(step.lessonId) : undefined;
+  const repertoire = useRepertoire();
+  const packLines = usePackLines();
+  const due = dueLines(packLines, repertoire.selected, repertoire.lines);
   const fresh = !learn.placementDone && !Object.values(learn.lessons).some((l) => l.done) && !Object.keys(learn.exams).length;
 
   return (
@@ -164,8 +218,39 @@ export function LearnPage() {
         </div>
       )}
 
+      <div className="list" style={{ marginTop: 16 }}>
+        <ListRow
+          icon={<BookOpen size={20} />}
+          title="Opening repertoire"
+          sub={
+            repertoire.selected.length
+              ? `${repertoire.selected.length} opening${repertoire.selected.length === 1 ? '' : 's'} · ${due} line${due === 1 ? '' : 's'} due`
+              : 'Pick your openings and drill them line by line'
+          }
+          href="/openings"
+        />
+        {COURSES.map((c) => {
+          const Icon = COURSE_ICON[c.id] ?? BookOpen;
+          const done = c.lessons.filter((id) => learn.lessons[id]?.done).length;
+          return (
+            <ListRow
+              key={c.id}
+              icon={<Icon size={20} />}
+              title={`${c.name} course`}
+              sub={done ? `${done} of ${c.lessons.length} lessons done` : c.goal}
+              onClick={() => document.getElementById(c.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            />
+          );
+        })}
+      </div>
+
       {LEVELS.map((l, i) => (
         <LevelBlock key={l.id} level={l} index={i} />
+      ))}
+
+      <h2 className="section-title course-title">More courses</h2>
+      {COURSES.map((c) => (
+        <CourseBlock key={c.id} course={c} />
       ))}
     </div>
   );

@@ -10,6 +10,8 @@ import { liveStreak, todayLog, useLearn } from '../state/learn';
 import { todayPlan } from '../lib/learn/today';
 import { Accent } from '../components/Rich';
 import { useDueCount } from './Puzzles';
+import { dueLines, usePackLines } from './Openings';
+import { useRepertoire } from '../state/repertoire';
 import type { GameRecord } from '../lib/storage/db';
 import { TIME_CONTROLS, hasSavedSetup, loadSetup, saveSetup, setupBot, startBotGame, suggestedBot, type Setup } from '../state/playSetup';
 import { GameListRow, useGames } from './Games';
@@ -163,7 +165,11 @@ function TodayPlan({ opponent, onPlay, games }: { opponent: string; onPlay: () =
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const gamesToday = (games ?? []).filter((g) => g.source === 'bot' && g.createdAt >= start.getTime() && g.result !== '*').length;
-  const items = todayPlan({ learn, day, due, gamesToday, opponent });
+  const repertoire = useRepertoire();
+  const packLines = usePackLines();
+  const openingsDue = dueLines(packLines, repertoire.selected, repertoire.lines);
+  const firstDue = repertoire.selected.find((id) => dueLines(packLines, [id], repertoire.lines) > 0);
+  const items = todayPlan({ learn, day, due, gamesToday, opponent, openingsDue, openingsHref: firstDue ? `/openings/${firstDue}` : '/openings' });
   const done = items.filter((i) => i.done).length;
   return (
     <section className="today">

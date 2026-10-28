@@ -1,11 +1,14 @@
-// Checks the tactics course. The legality checks always run; the engine checks
-// (solutions are best and clearly better than the alternatives) run with:
+// Checks the courses. The legality checks always run; the engine checks
+// (solutions are best and clearly better than the alternatives, quiz answers
+// are right, drills start from a position that fits the goal) run with:
 //   CURRICULUM=1 npx vitest run src/test/curriculum.test.ts --silent=false
+// (or CURRICULUM=forks,pins for just those lessons)
 import { Chess, type Color } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { LESSONS, type LessonStep } from '../lib/learn/curriculum';
 import { playUci, sanLine } from '../lib/chess/utils';
 import type { PvLine } from '../lib/engine/uci';
+import { expectedFor } from '../lib/review/winprob';
 import { nodeEngine } from './nodeEngine';
 
 const SQUARE = /^[a-h][1-8]$/;
@@ -72,9 +75,13 @@ const show = (fen: string, l: PvLine) =>
 
 it.skipIf(!process.env.CURRICULUM)('curriculum solutions are engine-verified', { timeout: 3_600_000 }, async () => {
   const problems: string[] = [];
-  const steps = LESSONS.flatMap((lesson) => lesson.steps.map((step) => ({ lesson, step })));
+  // CURRICULUM=1 checks every lesson; a comma-separated list of lesson ids checks just those.
+  const only = process.env.CURRICULUM === '1' ? null : new Set(process.env.CURRICULUM!.split(','));
+  const steps = LESSONS.filter((l) => !only || only.has(l.id)).flatMap((lesson) => lesson.steps.map((step) => ({ lesson, step })));
   let next = 0;
   const check = async (engine: ReturnType<typeof nodeEngine>, lesson: (typeof LESSONS)[number], step: LessonStep) => {
+    if (step.kind === 'quiz') return checkQuiz(engine, `${lesson.id} / ${step.title}`, step);
+    if (step.kind === 'drill') return checkDrill(engine, `${lesson.id} / ${step.title}`, step);
     if (step.kind !== 'puzzle') return;
     const where = `${lesson.id} / ${step.title}`;
     const chess = new Chess(step.fen);
@@ -100,11 +107,55 @@ it.skipIf(!process.env.CURRICULUM)('curriculum solutions are engine-verified', {
         }
       } else if (best && best.pv[0] !== uci) {
         const reply = r.lines.find((l) => l.pv[0] === uci);
-        if (!reply || cp(reply, solver) - cp(best, solver) > 60)
+        let replyCp = reply ? cp(reply, solver) : undefined;
+        if (replyCp === undefined) {
+          const after = new Chess(fen);
+          playUci(after, uci);
+          replyCp = after.isGameOver()
+            ? undefined
+            : cp((await engine.analyse({ fen: after.fen(), limits: { depth: 19 }, multipv: 1 })).lines[0], solver);
+        }
+        // Once every defence loses outright, any of them will do.
+        const lost = replyCp !== undefined && cp(best, solver) >= 800 && replyCp >= 800;
+        if (!lost && (replyCp === undefined || replyCp - cp(best, solver) > 60))
           problems.push(`${where}: reply ${uci} is not a good defence; best is ${show(fen, best)}`);
       }
       playUci(chess, uci);
     }
+  };
+  // Quiz moves, in expected points: every right answer is close to Stockfish's best move, and every wrong one is clearly
+  // worse than the right ones.
+  const checkQuiz = async (engine: ReturnType<typeof nodeEngine>, where: string, step: Extract<LessonStep, { kind: 'quiz' }>) => {
+    const withMoves = step.options.filter((o) => o.uci);
+    if (!withMoves.length) return;
+    const mover = new Chess(step.fen).turn();
+    const root = await engine.analyse({ fen: step.fen, limits: { depth: 22 }, multipv: 1 });
+    const best = expectedFor(root.lines[0].score, mover);
+    const scored: { label: string; correct: boolean; v: number }[] = [];
+    for (const o of withMoves) {
+      const c = new Chess(step.fen);
+      playUci(c, o.uci!);
+      let v: number;
+      if (c.isCheckmate()) v = 1;
+      else if (c.isDraw()) v = 0.5;
+      else v = expectedFor((await engine.analyse({ fen: c.fen(), limits: { depth: 21 }, multipv: 1 })).lines[0].score, mover);
+      scored.push({ label: o.label, correct: !!o.correct, v });
+    }
+    const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+    const right = scored.filter((x) => x.correct);
+    const worstRight = Math.min(...right.map((x) => x.v));
+    for (const x of right)
+      if (best - x.v > 0.06)
+        problems.push(`${where}: right answer "${x.label}" (${pct(x.v)}) is well below ${show(step.fen, root.lines[0])} (${pct(best)})`);
+    for (const x of scored.filter((y) => !y.correct))
+      if (worstRight - x.v < 0.03)
+        problems.push(`${where}: wrong answer "${x.label}" (${pct(x.v)}) is about as good as the right one (${pct(worstRight)})`);
+  };
+  // Drills start from a position the goal fits: a win to win, a draw to hold.
+  const checkDrill = async (engine: ReturnType<typeof nodeEngine>, where: string, step: Extract<LessonStep, { kind: 'drill' }>) => {
+    const r = await engine.analyse({ fen: step.fen, limits: { depth: 22 }, multipv: 1 });
+    const v = cp(r.lines[0], new Chess(step.fen).turn());
+    if (step.goal === 'hold' ? Math.abs(v) > 60 : v < 300) problems.push(`${where}: ${step.goal} drill starts at ${show(step.fen, r.lines[0])}`);
   };
   await Promise.all(
     Array.from({ length: 3 }, async () => {

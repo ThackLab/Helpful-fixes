@@ -7,7 +7,7 @@ import { THEME_INFO, type PuzzleTheme } from './tags';
 import type { DayLog } from '../../state/learn';
 
 export interface PlanItem {
-  id: 'mistakes' | 'puzzles' | 'lesson' | 'game';
+  id: 'mistakes' | 'puzzles' | 'lesson' | 'openings' | 'game';
   title: string;
   sub: string;
   done: boolean;
@@ -39,9 +39,12 @@ export interface PlanInput {
   /** Games finished today. */
   gamesToday: number;
   opponent: string;
+  /** Opening lines due in your repertoire, and where to drill them. */
+  openingsDue?: number;
+  openingsHref?: string;
 }
 
-export function todayPlan({ learn, day, due, gamesToday, opponent }: PlanInput): PlanItem[] {
+export function todayPlan({ learn, day, due, gamesToday, opponent, openingsDue = 0, openingsHref = '/openings' }: PlanInput): PlanItem[] {
   const items: PlanItem[] = [];
 
   // Your own mistakes come first: they are the positions you actually get wrong.
@@ -92,6 +95,18 @@ export function todayPlan({ learn, day, due, gamesToday, opponent }: PlanInput):
       sub: `All ${LEVELS.length} levels passed. Stay sharp.`,
       done: day.rush > 0,
       href: '/puzzles/rush',
+    });
+  }
+
+  if (openingsDue > 0 || day.openings > 0) {
+    const target = Math.min(3, openingsDue + day.openings);
+    items.push({
+      id: 'openings',
+      title: 'Drill your openings',
+      sub: openingsDue > 0 ? `${openingsDue} line${openingsDue === 1 ? '' : 's'} due` : 'All caught up',
+      done: day.openings >= target || openingsDue === 0,
+      count: [Math.min(day.openings, target), target],
+      href: openingsHref,
     });
   }
 

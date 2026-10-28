@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { COURSES } from './courses';
 import { LESSONS, LESSON_FOR_THEME, findLesson } from './curriculum';
 import {
   EXAM_PASS,
@@ -27,9 +28,15 @@ describe('course structure', () => {
     for (const id of ids) expect(findLesson(id), id).toBeTruthy();
     expect(new Set(ids).size).toBe(ids.length);
   });
-  it('every lesson is part of a level', () => {
-    const ids = new Set(LEVELS.flatMap((l) => l.lessons));
+  it('every lesson is part of a level or a course', () => {
+    const ids = new Set([...LEVELS.flatMap((l) => l.lessons), ...COURSES.flatMap((c) => c.lessons)]);
     for (const l of LESSONS) expect(ids.has(l.id), l.id).toBe(true);
+  });
+  it('every lesson a course lists exists, once per course', () => {
+    for (const c of COURSES) {
+      for (const id of c.lessons) expect(findLesson(id), id).toBeTruthy();
+      expect(new Set(c.lessons).size).toBe(c.lessons.length);
+    }
   });
   it('lesson links from reviews and puzzle themes point at real lessons', () => {
     for (const id of Object.values(LESSON_FOR_THEME)) expect(findLesson(id), id).toBeTruthy();

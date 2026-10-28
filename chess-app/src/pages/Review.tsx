@@ -25,6 +25,7 @@ import { puzzlesFrom, useReviewer } from '../state/reviewer';
 import { monogram } from '../lib/bots/bots';
 import type { Score } from '../lib/engine/uci';
 import { CountUp, Moves, Rich, San } from '../components/Rich';
+import { RepertoireNote } from './Openings';
 
 const SUMMARY_CLASSES: Classification[] = CLASS_ORDER.filter((c) => c !== 'forced');
 const BAD: Classification[] = ['inaccuracy', 'mistake', 'miss', 'blunder'];
@@ -894,6 +895,7 @@ function Overview({
           <Rich text={review.summary.replace(/ Coach's tips:.*$/, '')} />
         </p>
         {review.opening && <p className="coach-line">{review.opening.name}</p>}
+        <RepertoireNote moves={game.moves} sans={game.sans} you={game.userColor} />
       </div>
 
       {lessons && (lessons.lessons.length > 0 || lessons.strengths.length > 0) && (
