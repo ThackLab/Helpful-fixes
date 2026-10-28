@@ -23,16 +23,48 @@ export interface SearchHandle {
   stop(): void;
 }
 
-export function workerTransport(url: string): Transport {
-  const worker = new Worker(url);
+/**
+ * A transport to an engine worker. With a `fallback`, a worker that fails before it has said
+ * anything (a multi-threaded build that can't get its shared memory on a low-memory device) is
+ * replaced by the fallback build, and the commands sent so far are sent again; `adapt` can rewrite
+ * or drop commands meant for the first build.
+ */
+export function workerTransport(url: string, fallback?: { url: string; adapt?: (cmd: string) => string | null }): Transport {
   let listener: (line: string) => void = () => {};
-  worker.onmessage = (e: MessageEvent) => {
-    const data = typeof e.data === 'string' ? e.data : String(e.data);
-    for (const line of data.split('\n')) if (line) listener(line);
+  let heard = false;
+  let onFallback = false;
+  const sent: string[] = [];
+  const toWorker = (cmd: string) => {
+    const c = onFallback && fallback?.adapt ? fallback.adapt(cmd) : cmd;
+    if (c !== null) worker.postMessage(c);
   };
-  worker.onerror = (e) => console.error('[engine] worker error', e.message);
+  const start = (u: string) => {
+    const w = new Worker(u);
+    w.onmessage = (e: MessageEvent) => {
+      const data = typeof e.data === 'string' ? e.data : String(e.data);
+      for (const line of data.split('\n')) {
+        if (!line) continue;
+        // Only real engine output counts: a failing threaded build can post its own messages first.
+        if (!heard && /^(id |option |uciok|readyok|info |bestmove|Stockfish)/.test(line)) heard = true;
+        listener(line);
+      }
+    };
+    w.onerror = (e) => {
+      console.error('[engine] worker error', e.message);
+      if (heard || onFallback || !fallback) return;
+      onFallback = true;
+      w.terminate();
+      worker = start(fallback.url);
+      for (const cmd of sent) toWorker(cmd);
+    };
+    return w;
+  };
+  let worker = start(url);
   return {
-    post: (cmd) => worker.postMessage(cmd),
+    post: (cmd) => {
+      if (!heard) sent.push(cmd);
+      toWorker(cmd);
+    },
     onLine: (cb) => (listener = cb),
     terminate: () => worker.terminate(),
   };

@@ -17,7 +17,9 @@ function createEngine(opts: { threaded?: boolean; hash?: number; threads?: numbe
   const threaded = !!opts.threaded && canUseThreads();
   const initial: Record<string, string | number | boolean> = { Hash: opts.hash ?? 32 };
   if (threaded) initial.Threads = Math.max(1, opts.threads ?? hardwareThreads() - 1);
-  return new Engine(workerTransport(engineUrl(threaded)), initial);
+  // If the multi-threaded build can't start, the single-threaded one takes over (without the Threads option).
+  const fallback = threaded ? { url: engineUrl(false), adapt: (cmd: string) => (cmd.startsWith('setoption name Threads ') ? null : cmd) } : undefined;
+  return new Engine(workerTransport(engineUrl(threaded), fallback), initial);
 }
 
 let analysisEngine: Engine | null = null;
