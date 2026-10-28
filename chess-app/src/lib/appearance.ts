@@ -21,7 +21,7 @@ export type BoardId =
 export type PieceSetId =
   'cburnett' | 'merida' | 'chessnut' | 'spatial' | 'celtic' | 'fantasy' | 'papercut' | 'rhosgfx' | 'kiwen-suwi' | 'totoy' | 'mpchess' | 'firi';
 
-export type ThemeId = 'noir' | 'graphite' | 'club' | 'walnut' | 'paper' | 'ocean' | 'royal' | 'rose' | 'contrast' | 'clear';
+export type ThemeId = 'hearth' | 'noir' | 'graphite' | 'club' | 'walnut' | 'paper' | 'ocean' | 'royal' | 'rose' | 'contrast' | 'clear';
 
 /** How headlines are set: an editorial serif, tight heavy sans, or plain sans. */
 export type DisplayStyle = 'serif' | 'tight' | 'plain';
@@ -38,10 +38,21 @@ export interface Theme {
   light?: boolean;
   /** Shown in the theme list: background, text and accent. */
   swatch: [string, string, string];
-  group: 'Dark' | 'Colour' | 'Light' | 'Accessible';
+  group: 'Warm' | 'Dark' | 'Colour' | 'Light' | 'Accessible';
 }
 
 export const THEMES: Theme[] = [
+  {
+    id: 'hearth',
+    name: 'Hearth',
+    blurb: 'Warm espresso and amber, a wooden board, soft serif headlines.',
+    display: 'serif',
+    fonts: ['fraunces'],
+    board: 'brown',
+    pieces: 'cburnett',
+    swatch: ['#1b1410', '#f7ecdf', '#f2a65e'],
+    group: 'Warm',
+  },
   {
     id: 'noir',
     name: 'Noir',

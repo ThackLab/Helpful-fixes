@@ -47,7 +47,7 @@ function ThemeCard({ t, on, onPick }: { t: Theme; on: boolean; onPick: () => voi
 export function AppearancePage() {
   const s = useSettings();
   useEffect(loadAllFonts, []);
-  const groups = ['Dark', 'Colour', 'Light', 'Accessible'] as const;
+  const groups = ['Warm', 'Dark', 'Colour', 'Light', 'Accessible'] as const;
   const board = resolveBoard(s);
   const pieces = resolvePieces(s);
 

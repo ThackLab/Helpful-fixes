@@ -29,6 +29,51 @@
   --text-scale: 1.25;
 }
 
+/* ---------------------------------------------------------------- warm (default) */
+
+[data-theme='hearth'] {
+  --bg: #1b1410;
+  --bg-raise: #1b1410;
+  --surface: #241b16;
+  --surface-2: #2e231c;
+  --surface-3: #3b2e25;
+  --line: #33271f;
+  --line-strong: #4a3a2e;
+  --line-soft: #f7ecdf10;
+  --text: #f7ecdf;
+  --text-soft: #e9d9c6;
+  --text-dim: #bba48e;
+  --text-faint: #85705d;
+  --accent: #f2a65e;
+  --accent-strong: #d98b45;
+  --accent-text: #1e140d;
+  --accent-soft: #f2a65e24;
+  --sel: #f2a65e;
+  --sel-text: #1e140d;
+  --good: #a3d977;
+  --good-soft: #a3d9771f;
+  --good-line: #a3d97766;
+  --bad: #ff8468;
+  --bad-soft: #ff84681f;
+  --bad-line: #ff846866;
+  --focus: #f2a65e;
+  --radius-s: 10px;
+  --radius: 16px;
+  --radius-l: 22px;
+  --font-display: 'Fraunces', Georgia, serif;
+  --display-weight: 520;
+  --display-tracking: -0.015em;
+  --num-weight: 400;
+}
+/* A low ember glow behind the top of every page. */
+[data-theme='hearth'] body {
+  background:
+    radial-gradient(120% 60% at 50% -10%, #f2a65e1c, transparent 60%), radial-gradient(90% 50% at 100% 110%, #c8643c14, transparent 60%), var(--bg);
+}
+[data-theme='hearth'] #root {
+  background: transparent;
+}
+
 /* ---------------------------------------------------------------- dark */
 
 [data-theme='noir'] {

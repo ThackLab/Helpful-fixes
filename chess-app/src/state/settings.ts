@@ -49,7 +49,7 @@ export const useSettings = create<Settings>()(
   persist(
     (set) => ({
       playerName: 'You',
-      theme: 'noir',
+      theme: 'hearth',
       boardTheme: 'auto',
       pieceSet: 'auto',
       textSize: 'm',
@@ -78,11 +78,13 @@ export const useSettings = create<Settings>()(
     }),
     {
       name: 'outpost.settings',
-      version: 3,
-      // Version 2 was the black redesign; version 3 adds themes, whose board is the default ('auto').
+      version: 4,
+      // Version 2 was the black redesign; version 3 adds themes, whose board is the default ('auto');
+      // version 4 makes the warm Hearth theme the default, in place of Noir.
       migrate: (old, version) => {
         const o = { ...((old ?? {}) as Partial<Settings>) };
         if (version < 3 && (!o.boardTheme || o.boardTheme === 'green' || o.boardTheme === 'mono')) o.boardTheme = 'auto';
+        if (version < 4 && (!o.theme || o.theme === 'noir')) o.theme = 'hearth';
         return o as Settings;
       },
     },
