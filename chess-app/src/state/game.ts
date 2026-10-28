@@ -38,7 +38,8 @@ export interface LiveGame {
   status: 'playing' | 'over';
   result?: GameResult;
   termination?: string;
-  options: { takebacks: boolean; hints: boolean; evalBar: boolean };
+  /** coach: warns before mistakes (untimed games only, and they are not rated). */
+  options: { takebacks: boolean; hints: boolean; evalBar: boolean; coach?: boolean };
   hintsUsed: number;
   takebacksUsed: number;
   chat: ChatLine[];
@@ -55,6 +56,7 @@ export interface NewGameOptions {
   takebacks: boolean;
   hints: boolean;
   evalBar: boolean;
+  coach?: boolean;
 }
 
 interface GameStore {
@@ -170,7 +172,7 @@ export const useLiveGame = create<GameStore>()(
           clockHistory: [],
           turnStartedAt: Date.now(),
           status: 'playing',
-          options: { takebacks: o.takebacks, hints: o.hints, evalBar: o.evalBar },
+          options: { takebacks: o.takebacks, hints: o.hints, evalBar: o.evalBar, coach: !!o.coach && !tc },
           hintsUsed: 0,
           takebacksUsed: 0,
           chat: [],
@@ -244,7 +246,7 @@ export const useLiveGame = create<GameStore>()(
         }
         const userScore = result === '1/2-1/2' ? 0.5 : (result === '1-0') === (g.userColor === 'w') ? 1 : 0;
         // Very short games (aborts) don't count towards your rating.
-        const rated = g.moves.length >= 4 && result !== '*';
+        const rated = g.moves.length >= 4 && result !== '*' && !g.options.coach;
         const delta = rated ? useProfile.getState().recordResult(liveBot(g).elo, userScore as 0 | 0.5 | 1) : undefined;
         const done: LiveGame = { ...g, status: 'over', result, termination, clocks, turnStartedAt: null, ratingDelta: delta };
         set({ game: done });

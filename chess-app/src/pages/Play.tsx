@@ -129,6 +129,11 @@ export function PlayPage({ initialFen }: { initialFen?: string }) {
               <Toggle checked={setup.takebacks} onChange={(takebacks) => setSetup({ takebacks })} label="Allow takebacks" />
               <Toggle checked={setup.hints} onChange={(hints) => setSetup({ hints })} label="Allow hints" />
               <Toggle checked={setup.evalBar} onChange={(evalBar) => setSetup({ evalBar })} label="Show evaluation bar" />
+              <Toggle
+                checked={setup.coach && !setup.tc}
+                onChange={(coach) => setSetup(coach ? { coach, tc: 0 } : { coach })}
+                label="Coach: stops you before a mistake (untimed, not rated)"
+              />
               <Toggle checked={showFen} onChange={setShowFen} label="Start from a position" />
               {showFen && (
                 <>

@@ -64,7 +64,7 @@ export function refutationText(fenAfterTry: string, replyUci: string | undefined
   const c = new Chess(fenAfterTry);
   const mv = playUci(c, replyUci);
   if (!mv) return null;
-  if (c.isCheckmate()) return `Your opponent answers ${mv.san} - checkmate.`;
+  if (c.isCheckmate()) return `Your opponent answers ${mv.san} – checkmate.`;
   const motif = moveMotifs(fenAfterTry, replyUci).find((m) => PUNISHING.includes(m.kind));
   if (motif) return `Your opponent answers ${mv.san}, which ${motif.text}.`;
   if (ep >= 0.6) return 'That move is playable, but there is something clearly stronger.';

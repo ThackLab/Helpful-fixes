@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { analyseLive, pauseLive } from '../state/liveAnalysis';
+import { checkMove, opponentSlip, stopCoach } from '../lib/coach/blunderCheck';
 import { monogram } from '../lib/bots/bots';
 import { ArrowUpDown, ChevronLeft, ChevronRight, Flag, Handshake, Lightbulb, Microscope, Plus, RotateCcw, Undo2 } from 'lucide-react';
 import type { DrawShape } from 'chessground/draw';
@@ -19,7 +20,7 @@ import { useSettings } from '../state/settings';
 import { useProfile } from '../state/profile';
 import { CLASS_META } from '../lib/review/types';
 import { getReview } from '../lib/storage/db';
-import { Accent, CountUp } from '../components/Rich';
+import { Accent, CountUp, Rich } from '../components/Rich';
 
 const colorName = (c: 'w' | 'b') => (c === 'w' ? 'white' : 'black');
 
@@ -49,6 +50,10 @@ export function GamePage() {
   const [lastEval, setLastEval] = useState<Score | undefined>();
   const [showEnd, setShowEnd] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
+  /** The coach's verdict on your last move, keyed by game and move count. */
+  const [coach, setCoach] = useState<{ key: string; status: 'checking' | 'warn' | 'ok'; text?: string; ep?: number } | null>(null);
+  /** Set when the bot's last move threw something away. */
+  const [slip, setSlip] = useState<string | null>(null);
   const reviewJob = useReviewer((s) => (game?.savedId ? s.jobs[game.savedId] : undefined));
 
   useEffect(() => {
@@ -59,11 +64,13 @@ export function GamePage() {
   const chess = useMemo(() => (game ? chessOf(game) : null), [game]);
   const bot = game ? liveBot(game) : null;
 
-  // Bot moves.
+  // Bot moves. With the coach on, the bot waits until your move has been checked (and kept).
   useEffect(() => {
     if (!game || !chess || !bot || game.status !== 'playing' || chess.turn() === game.userColor) return;
-    let cancelled = false;
     const key = `${game.id}:${game.moves.length}`;
+    if (game.options.coach && game.moves.length > 0 && (coach?.key !== key || coach.status !== 'ok')) return;
+    const epAfterYours = coach?.key === key ? coach.ep : undefined;
+    let cancelled = false;
     const started = Date.now();
     (async () => {
       try {
@@ -80,6 +87,12 @@ export function GamePage() {
           playSound(soundForSan(mv.san));
           const after = store.getState().game;
           if (after?.status === 'playing') requestAnimationFrame(() => boardRef.current?.playPremove());
+          if (after?.options.coach && after.status === 'playing' && epAfterYours !== undefined) {
+            const k = `${after.id}:${after.moves.length}`;
+            void opponentSlip(after.startFen, after.moves, after.userColor, epAfterYours).then((gain) => {
+              if (gain >= 0.2) setSlip(k);
+            });
+          }
         }
       } catch (e) {
         console.error(e);
@@ -88,7 +101,7 @@ export function GamePage() {
     return () => {
       cancelled = true;
     };
-  }, [game?.id, game?.moves.length, game?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [game?.id, game?.moves.length, game?.status, coach?.key, coach?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Flag fall.
   useEffect(() => {
@@ -124,7 +137,13 @@ export function GamePage() {
     if (game?.status === 'playing' && settings.autoReview && settings.liveAnalysis) analyseLive(game.startFen, game.moves, settings.reviewDepth);
     else pauseLive();
   }, [game?.moves.length, game?.status, settings.autoReview, settings.liveAnalysis, settings.reviewDepth]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => pauseLive(), []);
+  useEffect(
+    () => () => {
+      pauseLive();
+      stopCoach();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (game?.status === 'over' && game.savedId && settings.autoReview && game.moves.length >= 2) {
@@ -147,6 +166,20 @@ export function GamePage() {
         playSound(soundForSan(legal.san));
         setHint(null);
         setViewPly(null);
+        setSlip(null);
+        const after = store.getState().game;
+        if (after?.options.coach && after.status === 'playing') {
+          const key = `${after.id}:${after.moves.length}`;
+          setCoach({ key, status: 'checking' });
+          checkMove(after.startFen, after.moves, after.userColor)
+            .then((v) => {
+              const cur = store.getState().game;
+              if (!cur || `${cur.id}:${cur.moves.length}` !== key) return;
+              setCoach(v?.warn ? { key, status: 'warn', text: v.text, ep: v.ep } : { key, status: 'ok', ep: v?.ep });
+              if (v?.warn) playSound('illegal');
+            })
+            .catch(() => setCoach({ key, status: 'ok' }));
+        }
       }
     },
     [store],
@@ -308,6 +341,35 @@ export function GamePage() {
           <MoveList sans={game.sans} startFen={game.startFen} current={currentIndex} onSelect={selectMove} />
         </div>
         <MoveStrip sans={game.sans} startFen={game.startFen} current={currentIndex} onSelect={selectMove} />
+        {playing && coach?.status === 'warn' && coach.key === `${game.id}:${game.moves.length}` && (
+          <div className="coach-banner warn" role="alert">
+            <p>
+              <b>Hold on.</b> <Rich text={coach.text ?? ''} />
+            </p>
+            <div className="row">
+              <button
+                className="btn small primary"
+                onClick={() => {
+                  store.getState().takeback();
+                  setCoach(null);
+                }}
+              >
+                Take it back
+              </button>
+              <button className="btn small ghost" onClick={() => setCoach({ ...coach, status: 'ok' })}>
+                Play it anyway
+              </button>
+            </div>
+          </div>
+        )}
+        {playing && coach?.status === 'checking' && <div className="coach-banner quiet">Coach is checking your move…</div>}
+        {playing && slip === `${game.id}:${game.moves.length}` && (
+          <div className="coach-banner good">
+            <p>
+              <b>Your opponent slipped.</b> There’s something good here: look for checks, captures and threats.
+            </p>
+          </div>
+        )}
         {!playing && (
           <div className="game-over-bar">
             <span>

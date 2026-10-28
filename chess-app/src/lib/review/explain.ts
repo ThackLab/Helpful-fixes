@@ -145,7 +145,7 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
     }
     if (tactic) {
       return {
-        text: `This allows ${replySan}, which ${tactic.text} - you lose ${what}.`,
+        text: `This allows ${replySan}, which ${tactic.text} – you lose ${what}.`,
         squares: tactic.squares ?? [],
         tags: [`allows:${tactic.kind}`, 'losesMaterial'],
       };
@@ -160,6 +160,14 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
   if (replyMotifs.some((m) => m.kind === 'threatensMate'))
     return { text: `Your opponent gets a dangerous attack with ${replySan}.`, squares: [], tags: ['attack'] };
   return { text: '', squares: [], tags: [] };
+}
+
+/**
+ * Why a move is bad, from the opponent's best reply: the coach's warning during
+ * a game, worded like the review. Empty when nothing concrete can be named.
+ */
+export function warningText(before: PositionEval, after: PositionEval, color: Color, uci: string, san: string): string {
+  return punishment({ before, after, color, uci, san } as ExplainInput).text;
 }
 
 /** Material the engine's best line wins for `color` (pawn units). */

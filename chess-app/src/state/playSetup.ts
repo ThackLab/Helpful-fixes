@@ -25,10 +25,12 @@ export interface Setup {
   takebacks: boolean;
   hints: boolean;
   evalBar: boolean;
+  /** Warns before mistakes; untimed games only, and they don't change your rating. */
+  coach: boolean;
   customElo: number;
 }
 
-const DEFAULT: Setup = { botId: 'hugo', color: 'w', tc: 0, takebacks: true, hints: true, evalBar: false, customElo: 1200 };
+const DEFAULT: Setup = { botId: 'hugo', color: 'w', tc: 0, takebacks: true, hints: true, evalBar: false, coach: false, customElo: 1200 };
 
 export function hasSavedSetup(): boolean {
   try {
@@ -74,6 +76,7 @@ export function startBotGame(s: Setup, startFen = START_FEN) {
     takebacks: s.takebacks,
     hints: s.hints,
     evalBar: s.evalBar,
+    coach: s.coach && !s.tc,
   });
   playSound('start');
   navigate('/game');

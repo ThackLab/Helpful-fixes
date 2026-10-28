@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronRight, Flame, SlidersHorizontal } from 'lucide-react';
 import { navigate } from '../lib/router';
 import { BOTS, findBot, monogram } from '../lib/bots/bots';
-import { Logo, Segmented } from '../components/Widgets';
+import { Logo, Segmented, Toggle } from '../components/Widgets';
 import { SectionTitle } from '../components/ui';
 import { useProfile } from '../state/profile';
 import { useLiveGame } from '../state/game';
@@ -113,6 +113,15 @@ export function HomePage() {
                 { value: 'random', label: 'Random' },
                 { value: 'b', label: 'Black' },
               ]}
+            />
+            <Toggle
+              checked={setup.coach && !setup.tc}
+              onChange={(coach) => setSetup(coach ? { coach, tc: 0 } : { coach })}
+              label={
+                <span className="coach-toggle">
+                  Coach <span className="faint">stops you before a mistake · untimed, not rated</span>
+                </span>
+              }
             />
           </div>
 

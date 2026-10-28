@@ -1215,3 +1215,51 @@ cg-board square.hl-wrong {
   font-size: 2.4rem;
   line-height: 1.05;
 }
+
+/* ---------------------------------------------------------------- coach in games */
+
+.coach-banner {
+  margin: 8px 12px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  animation: rise 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.coach-banner p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text-soft) 55%, var(--text-dim));
+}
+.coach-banner b {
+  color: var(--text);
+}
+.coach-banner.warn {
+  border-color: var(--bad-line);
+  background: var(--bad-soft);
+}
+.coach-banner.warn b:first-child {
+  color: var(--bad);
+}
+.coach-banner.good {
+  border-color: var(--good-line);
+  background: var(--good-soft);
+}
+.coach-banner.good p {
+  margin: 0;
+}
+.coach-banner.good b {
+  color: var(--good);
+}
+.coach-banner.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  padding: 4px 12px;
+}
+.coach-toggle .faint {
+  display: block;
+  font-size: 0.75rem;
+}
