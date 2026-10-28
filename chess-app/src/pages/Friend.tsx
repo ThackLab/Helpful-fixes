@@ -13,6 +13,7 @@ import { useSettings } from '../state/settings';
 import { navigate } from '../lib/router';
 import { copyText } from '../lib/platform';
 import { playSound, soundForSan } from '../lib/sound';
+import { OnlineLobby } from './Online';
 
 const CLOCKS: { label: string; tc: { initial: number; increment: number } | null }[] = [
   { label: 'No clock', tc: null },
@@ -50,6 +51,7 @@ export function FriendHome() {
   return (
     <div className="page narrow friend">
       <PageHead title="Play a friend" back="/" />
+      <OnlineLobby />
 
       {ongoing.length > 0 && (
         <>

@@ -25,6 +25,9 @@ jobs:
         working-directory: chess-app
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The Android version code counts commits, so newer builds install over older ones.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -33,6 +36,14 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # The Android app, so invites can link to a download: <site>/outpost-chess.apk
+      - uses: actions/setup-java@v4
+        if: github.event_name != 'pull_request'
+        with:
+          distribution: temurin
+          java-version: 17
+      - if: github.event_name != 'pull_request'
+        run: ./android/build-apk.sh && cp android/build/outpost-chess.apk dist/outpost-chess.apk
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

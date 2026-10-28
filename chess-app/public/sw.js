@@ -1,6 +1,6 @@
 // Offline support: the app shell, engine and opening book are cached on first
 // visit so the app keeps working without a connection.
-const CACHE = 'outpost-v3';
+const CACHE = 'outpost-v4';
 const CORE = [
   './',
   './index.html',
@@ -35,6 +35,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // Downloads (the Android app) go straight to the network.
+  if (url.pathname.endsWith('.apk')) return;
   // The multi-threaded engine only runs on hosts that make the page cross-origin isolated, and a
   // worker served from here loses that isolation, so its files always come from the network.
   if (/\/engine\/stockfish-[^/]*\.(js|wasm)$/.test(url.pathname) && !url.pathname.includes('-single')) return;

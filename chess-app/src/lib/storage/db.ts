@@ -4,7 +4,7 @@ import { createStore, del, entries, get, set, setMany, clear, type UseStore } fr
 import type { Color } from 'chess.js';
 import type { GameReview } from '../review/types';
 
-export type GameSource = 'bot' | 'import' | 'analysis' | 'pgn' | 'local';
+export type GameSource = 'bot' | 'import' | 'analysis' | 'pgn' | 'local' | 'online';
 export type GameResult = '1-0' | '0-1' | '1/2-1/2' | '*';
 
 export interface PlayerInfo {
