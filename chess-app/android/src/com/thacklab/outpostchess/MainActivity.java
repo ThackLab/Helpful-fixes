@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
@@ -185,6 +187,22 @@ public class MainActivity extends Activity {
                 return file.getAbsolutePath();
             } catch (Exception e) {
                 return "";
+            }
+        }
+
+        /** Vibrates in a pattern of on/off milliseconds, e.g. "14,60,14". */
+        @JavascriptInterface
+        public void vibrate(String pattern) {
+            Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (v == null || !v.hasVibrator()) return;
+            try {
+                String[] parts = pattern.split(",");
+                long[] timings = new long[parts.length + 1];
+                for (int i = 0; i < parts.length; i++) timings[i + 1] = Math.max(0, Math.min(1000, Long.parseLong(parts[i].trim())));
+                if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createWaveform(timings, -1));
+                else v.vibrate(timings, -1);
+            } catch (NumberFormatException e) {
+                // ignore a malformed pattern
             }
         }
 

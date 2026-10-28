@@ -23,6 +23,8 @@ export interface Settings {
   lastBackupAt: number;
   backupSnoozedAt: number;
   sound: boolean;
+  /** Vibrate on moves and results, where the device can (Android). */
+  haptics: boolean;
   coordinates: boolean;
   showLegalMoves: boolean;
   animation: boolean;
@@ -58,6 +60,7 @@ export const useSettings = create<Settings>()(
       lastBackupAt: 0,
       backupSnoozedAt: 0,
       sound: true,
+      haptics: true,
       coordinates: true,
       showLegalMoves: true,
       animation: true,

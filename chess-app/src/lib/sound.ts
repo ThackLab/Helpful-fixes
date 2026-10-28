@@ -1,5 +1,7 @@
-// Tiny synthesised sound effects (no audio files needed).
+// Tiny synthesised sound effects (no audio files needed), with a matching
+// vibration on devices that have one.
 import { useSettings } from '../state/settings';
+import { canVibrate, vibrate } from './platform';
 
 let ctx: AudioContext | null = null;
 
@@ -50,7 +52,23 @@ function noise(dur: number, gain = 0.2, when = 0) {
 
 export type SoundKind = 'move' | 'capture' | 'check' | 'castle' | 'promote' | 'end' | 'start' | 'illegal' | 'correct' | 'wrong' | 'lowtime';
 
+/** Vibration patterns (on, off, on... in ms): short taps for moves, a double pulse for checks, a buzz for a mistake. */
+const HAPTICS: Record<SoundKind, number[]> = {
+  move: [12],
+  capture: [22],
+  check: [14, 60, 14],
+  castle: [12, 70, 12],
+  promote: [16, 50, 30],
+  end: [30, 90, 60],
+  start: [18],
+  illegal: [10, 40, 10],
+  correct: [20, 60, 20],
+  wrong: [70],
+  lowtime: [40, 120, 40],
+};
+
 export function playSound(kind: SoundKind) {
+  if (canVibrate && useSettings.getState().haptics) vibrate(HAPTICS[kind]);
   switch (kind) {
     case 'move':
       knock(420, 0.07, 0.3);

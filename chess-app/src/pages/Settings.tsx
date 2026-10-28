@@ -8,6 +8,7 @@ import { useProfile } from '../state/profile';
 import { useSettings } from '../state/settings';
 import { themeOf } from '../lib/appearance';
 import { ListRow, PageHead } from '../components/ui';
+import { canVibrate } from '../lib/platform';
 
 function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -76,6 +77,11 @@ export function SettingsPage() {
           <Row title="Sound effects">
             <Toggle checked={s.sound} onChange={(sound) => s.set({ sound })} />
           </Row>
+          {canVibrate && (
+            <Row title="Vibration" desc="A light tap for every move, a buzz for a mistake">
+              <Toggle checked={s.haptics} onChange={(haptics) => s.set({ haptics })} />
+            </Row>
+          )}
         </section>
 
         <section className="card">

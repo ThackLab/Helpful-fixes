@@ -5,11 +5,25 @@ interface AndroidBridge {
   /** Writes a file to the device's Downloads folder; returns where it went ('' on failure). */
   saveFile(name: string, mime: string, content: string): string;
   copyText(text: string): void;
+  /** Vibrates in a pattern of on/off milliseconds, comma-separated (app version 1.1 and later). */
+  vibrate?(pattern: string): void;
 }
 
 const bridge = (globalThis as { OutpostAndroid?: AndroidBridge }).OutpostAndroid;
 
 export const isAndroidApp = !!bridge;
+
+/** Whether this device can vibrate: the Android app, or a browser with the Vibration API (not iOS). */
+export const canVibrate = typeof bridge?.vibrate === 'function' || (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function');
+
+export function vibrate(pattern: number[]) {
+  try {
+    if (typeof bridge?.vibrate === 'function') bridge.vibrate(pattern.join(','));
+    else navigator.vibrate?.(pattern);
+  } catch {
+    // Some browsers refuse without a recent tap; that's fine.
+  }
+}
 
 export const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
