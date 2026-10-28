@@ -47,7 +47,7 @@ export const THEMES: Record<Theme, ThemeInfo> = {
   hanging: {
     icon: '🎯',
     title: 'Hanging pieces',
-    rule: 'Blunder check before you let go of a piece: is the square it lands on attacked? And what did the moved piece defend before - is anything left unguarded now?',
+    rule: 'Blunder check before you let go of a piece: is the square it lands on attacked? And what did the moved piece defend before – is anything left unguarded now?',
   },
   exchanges: {
     icon: '⚖️',
@@ -67,12 +67,12 @@ export const THEMES: Record<Theme, ThemeInfo> = {
   skewer: {
     icon: '🍢',
     title: 'Skewers',
-    rule: 'Keep your king and queen off the same line as enemy long-range pieces - when the front piece has to move, the one behind it falls.',
+    rule: 'Keep your king and queen off the same line as enemy long-range pieces – when the front piece has to move, the one behind it falls.',
   },
   discovered: {
     icon: '💥',
     title: 'Discovered attacks',
-    rule: 'When an enemy piece stands between their bishop, rook or queen and your king or queen, expect it to move with a threat of its own - you then face two attacks at once.',
+    rule: 'When an enemy piece stands between their bishop, rook or queen and your king or queen, expect it to move with a threat of its own – you then face two attacks at once.',
   },
   missedMate: {
     icon: '♚',
@@ -87,7 +87,7 @@ export const THEMES: Record<Theme, ThemeInfo> = {
   missedChance: {
     icon: '🔎',
     title: 'Missed chances',
-    rule: 'After every opponent move, scan for checks, captures and threats (CCT) - for both sides. Mistakes by your opponent only help you if you notice them.',
+    rule: 'After every opponent move, scan for checks, captures and threats (CCT) – for both sides. Mistakes by your opponent only help you if you notice them.',
   },
   earlyQueen: {
     icon: '♛',
@@ -122,12 +122,12 @@ export const THEMES: Record<Theme, ThemeInfo> = {
   endgameKing: {
     icon: '🤴',
     title: 'Use your king in the endgame',
-    rule: 'With the queens off, the king becomes a strong attacking and defending piece - march it towards the centre and the pawns.',
+    rule: 'With the queens off, the king becomes a strong attacking and defending piece – march it towards the centre and the pawns.',
   },
   passedPawn: {
     icon: '🏃',
     title: 'Passed pawns',
-    rule: 'In the endgame, passed pawns must be pushed - and enemy passed pawns must be blocked, ideally by a knight or the king.',
+    rule: 'In the endgame, passed pawns must be pushed – and enemy passed pawns must be blocked, ideally by a knight or the king.',
   },
   positional: {
     icon: '🧭',
@@ -348,7 +348,7 @@ export function gameLessons(review: GameReview, ctx: LessonContext): GameLessons
           icon: '⏱️',
           title: 'Time management',
           detail: `${inTrouble.length} of your ${serious.length} serious mistakes came when you were low on the clock.`,
-          rule: 'Bank time in simple positions and spend it at critical moments - when captures, checks or a change of structure are on the board.',
+          rule: 'Bank time in simple positions and spend it at critical moments – when captures, checks or a change of structure are on the board.',
           plies: inTrouble.map((m) => m.ply),
           cost: inTrouble.reduce((a, m) => a + m.epLoss, 0),
         });
@@ -380,9 +380,9 @@ export function gameLessons(review: GameReview, ctx: LessonContext): GameLessons
     const book = mine.filter((m) => m.classification === 'book');
     if (book.length >= 4) strengths.push(`You knew your opening theory (${book.length} book moves).`);
     else if ((s.phases.opening ?? 0) >= 85) strengths.push(`Solid opening play (${Math.round(s.phases.opening!)}% accuracy).`);
-    if (!s.counts.blunder && mine.length >= 10) strengths.push('No blunders - your blunder check is working.');
+    if (!s.counts.blunder && mine.length >= 10) strengths.push('No blunders – your blunder check is working.');
     if ((s.phases.endgame ?? 0) >= 85) strengths.push(`Clean endgame technique (${Math.round(s.phases.endgame!)}% accuracy).`);
-    if (s.accuracy >= 90) strengths.push('Very accurate overall - keep it up.');
+    if (s.accuracy >= 90) strengths.push('Very accurate overall – keep it up.');
   }
 
   // The guided lesson walks through the costliest moments (at most five), in game order.

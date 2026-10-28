@@ -21,6 +21,7 @@ import { useProfile } from '../state/profile';
 import { liveStreak, useLearn } from '../state/learn';
 import { THEME_SETS, useDueCount } from './Puzzles';
 import { GameListRow, useGames } from './Games';
+import { CountUp } from '../components/Rich';
 
 export function YouPage() {
   const profile = useProfile();
@@ -79,7 +80,9 @@ export function YouPage() {
           <span className="rt-k">
             <ChessKnight size={14} /> Games
           </span>
-          <span className="rt-v">{profile.rating}</span>
+          <span className="rt-v">
+            <CountUp value={profile.rating} id="bot-rating" />
+          </span>
           <span className="rt-s">
             {profile.wins}W {profile.draws}D {profile.losses}L
           </span>
@@ -92,7 +95,9 @@ export function YouPage() {
           <span className="rt-k">
             <Puzzle size={14} /> Puzzles
           </span>
-          <span className="rt-v">{learn.rating}</span>
+          <span className="rt-v">
+            <CountUp value={learn.rating} id="puzzle-rating" />
+          </span>
           <span className="rt-s">{learn.attempts ? `${Math.round((learn.solved / learn.attempts) * 100)}% solved` : 'Not rated yet'}</span>
         </button>
         <button

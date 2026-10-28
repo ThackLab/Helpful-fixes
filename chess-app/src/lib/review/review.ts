@@ -388,11 +388,11 @@ export function summariseGame(r: GameReview, userColor?: Color): string {
     ].filter(Boolean);
     if (found.length) out.push(`Nice: you found ${found.join(' and ')}.`);
     if (hung) tips.push(`you left material hanging ${hung} time${hung > 1 ? 's' : ''} - before each move, ask "what does this leave undefended?"`);
-    if (allowedMate) tips.push('watch your king’s safety - you allowed a forced mate');
-    if (tacticalHits) tips.push('your opponent had tactics (forks/pins) against you - check every forcing reply before you move');
+    if (allowedMate) tips.push('watch your king’s safety – you allowed a forced mate');
+    if (tacticalHits) tips.push('your opponent had tactics (forks/pins) against you – check every forcing reply before you move');
     if (s.counts.miss)
       tips.push(
-        `you missed ${s.counts.miss} chance${s.counts.miss > 1 ? 's' : ''} to punish mistakes - after every opponent move, scan for checks, captures and threats`,
+        `you missed ${s.counts.miss} chance${s.counts.miss > 1 ? 's' : ''} to punish mistakes – after every opponent move, scan for checks, captures and threats`,
       );
     const ph = Object.entries(s.phases).filter(([, v]) => v !== null) as [Phase, number][];
     if (ph.length >= 2) {

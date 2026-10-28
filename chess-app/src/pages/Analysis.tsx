@@ -32,6 +32,7 @@ import { playSound, soundForSan } from '../lib/sound';
 import { getGame, newId, saveGame, type GameRecord } from '../lib/storage/db';
 import { useSettings } from '../state/settings';
 import { copyText, saveTextFile } from '../lib/platform';
+import { San } from '../components/Rich';
 
 const LS_KEY = 'outpost.analysis';
 
@@ -563,7 +564,7 @@ function TreeView({ tree, cur, onSelect }: { tree: GameTree; cur: string; onSele
       <span key={n.id}>
         {(white || forceNumber) && <span className="num">{white ? `${num}.` : `${num}...`}</span>}
         <span className={`mv ${n.id === cur ? 'cur' : ''}`} onClick={() => onSelect(n.id)} data-id={n.id}>
-          {n.san}
+          <San san={n.san ?? ''} />
           {n.nags?.map((g) => (
             <span key={g} className="nag">
               {NAG_SYMBOLS[g] ?? ''}

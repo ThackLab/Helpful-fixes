@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ClassIcon } from './ClassIcon';
 import type { Classification } from '../lib/review/types';
+import { San } from './Rich';
 
 const QUIET: (Classification | undefined)[] = ['best', 'excellent', 'good', 'book', 'forced', undefined];
 
@@ -57,7 +58,7 @@ export function MoveList({
     return (
       <span className={`mv ${i === current ? 'cur' : ''}`} onClick={() => onSelect(i)}>
         {!QUIET.includes(cls) && <ClassIcon cls={cls!} size={16} />}
-        {sans[i]}
+        <San san={sans[i]} />
       </span>
     );
   };
@@ -118,7 +119,7 @@ export function MoveStrip({
             {(white || i === 0) && <span className="no">{white ? `${no}.` : `${no}...`}</span>}
             <span className={`mv ${i === current ? 'cur' : ''}`} onClick={() => onSelect(i)}>
               {!QUIET.includes(cls) && <ClassIcon cls={cls!} size={14} />}
-              {san}
+              <San san={san} />
             </span>
           </span>
         );

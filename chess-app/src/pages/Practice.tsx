@@ -14,6 +14,7 @@ import { playSound, soundForSan } from '../lib/sound';
 import type { Classification } from '../lib/review/types';
 import { hintsFor, refutationText } from '../lib/review/hints';
 import { PageHead } from '../components/ui';
+import { Moves, Rich, San } from '../components/Rich';
 
 const DAY = 86_400_000;
 const INTERVALS = [DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -176,7 +177,7 @@ export function PracticePage() {
         <div className="card empty">
           {total === 0 ? (
             <>
-              <p>No practice positions yet. Play and review a few games - your mistakes will show up here.</p>
+              <p>No practice positions yet. Play and review a few games – your mistakes will show up here.</p>
               <button className="btn primary" onClick={() => navigate('/')}>
                 Play a bot
               </button>
@@ -252,10 +253,18 @@ export function PracticePage() {
             {phase === 'solve' && (
               <>
                 <p className="coach-text">
-                  In your game you played <b>{current.playedSan}</b> here. What should you have played?
+                  In your game you played <San san={current.playedSan} chip /> here. What should you have played?
                 </p>
-                {hints && hintLevel >= 1 && <p className="coach-hint">{hints.idea}</p>}
-                {hints && hintLevel >= 2 && <p className="coach-hint">{hints.piece}</p>}
+                {hints && hintLevel >= 1 && (
+                  <p className="coach-hint">
+                    <Rich text={hints.idea} />
+                  </p>
+                )}
+                {hints && hintLevel >= 2 && (
+                  <p className="coach-hint">
+                    <Rich text={hints.piece} />
+                  </p>
+                )}
                 {hints && hintLevel < 2 && (
                   <div className="row">
                     <button className="btn small" onClick={() => (setHintLevel((h) => h + 1), setFirstTry(false))}>
@@ -266,18 +275,22 @@ export function PracticePage() {
               </>
             )}
             {phase === 'wrong' && (
-              <p className="coach-text">{refutation ?? 'That move doesn’t solve the position.'} Try again, or reveal the solution.</p>
+              <p className="coach-text">
+                <Rich text={`${refutation ?? 'That move doesn’t solve the position.'} Try again, or reveal the solution.`} />
+              </p>
             )}
             {(phase === 'correct' || phase === 'revealed') && (
               <>
                 <div className="coach-section">
                   <div className="coach-label">The line</div>
-                  <p className="coach-text">{formatLine(current.fen, current.solutionSan)}</p>
+                  <p className="coach-line moves-line">
+                    <Moves line={formatLine(current.fen, current.solutionSan)} />
+                  </p>
                 </div>
                 <div className="coach-section">
                   <div className="coach-label">What happened in your game</div>
                   <p className="coach-text">
-                    <b>{current.playedSan}</b>: {current.comment}
+                    <San san={current.playedSan} chip />: <Rich text={current.comment} />
                   </p>
                 </div>
                 {current.lesson && (

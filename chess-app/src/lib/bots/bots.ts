@@ -229,7 +229,7 @@ const LINES: Record<Moment, string[]> = {
   blunderByUser: ['Ooh, thank you!', 'Are you sure about that?', 'I’ll take that!', 'Hmm, that looks loose.'],
   goodByUser: ['Nice move!', 'Ouch, good one.', 'I didn’t see that coming.', 'Strong!'],
   botAdvantage: ['Things are looking good for me.', 'I like my position.', 'Feeling confident now.'],
-  botWins: ['Good game! Want a rematch?', 'GG! Check the review to see what went wrong.', 'That was fun - try again?'],
+  botWins: ['Good game! Want a rematch?', 'GG! Check the review to see what went wrong.', 'That was fun – try again?'],
   userWins: ['Well played! You got me.', 'GG, you deserved that.', 'Congratulations! Rematch?'],
   draw: ['A fair result. Good game!', 'Draw it is. Well played.'],
   check: ['Check!', 'Watch your king!'],

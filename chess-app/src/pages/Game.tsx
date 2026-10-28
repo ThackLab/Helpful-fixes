@@ -19,6 +19,7 @@ import { useSettings } from '../state/settings';
 import { useProfile } from '../state/profile';
 import { CLASS_META } from '../lib/review/types';
 import { getReview } from '../lib/storage/db';
+import { Accent, CountUp } from '../components/Rich';
 
 const colorName = (c: 'w' | 'b') => (c === 'w' ? 'white' : 'black');
 
@@ -410,15 +411,20 @@ export function GamePage() {
             <div className="kicker" style={{ marginBottom: 6 }}>
               Game over
             </div>
-            <h2 style={{ marginBottom: 4 }}>{endTitle}</h2>
+            <h2 className="end-title">
+              <Accent text={userScore === 1 ? 'You *won*.' : userScore === 0 ? `${bot.name} *won* this one.` : 'A *draw*.'} />
+            </h2>
             <div className="muted">{fromLabel(game.termination)}</div>
             {game.ratingDelta !== undefined && (
-              <div style={{ marginTop: 10 }}>
-                Rating vs bots: <b>{rating}</b>{' '}
-                <span style={{ color: game.ratingDelta >= 0 ? 'var(--accent)' : 'var(--danger)', fontWeight: 800 }}>
-                  ({game.ratingDelta >= 0 ? '+' : ''}
-                  {game.ratingDelta})
+              <div className="end-rating">
+                <span className="num-display">
+                  <CountUp value={rating} id="bot-rating" />
                 </span>
+                <span className={game.ratingDelta >= 0 ? 'up' : 'down'}>
+                  {game.ratingDelta >= 0 ? '+' : ''}
+                  {game.ratingDelta}
+                </span>
+                <span className="faint">rating against the bots</span>
               </div>
             )}
             {reviewJob?.status === 'running' && (
@@ -469,7 +475,9 @@ function ReviewTeaser({ gameId, userColor }: { gameId: string; userColor: 'w' | 
   return (
     <div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 18 }}>
       <div className="stat">
-        <span className="v">{acc.me.toFixed(1)}</span>
+        <span className="v">
+          <CountUp value={acc.me} decimals={1} />
+        </span>
         <span className="k">Your accuracy</span>
       </div>
       <div className="stat">

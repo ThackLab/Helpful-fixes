@@ -15,6 +15,7 @@ import { playSound, soundForSan } from '../lib/sound';
 import { Stars } from '../components/ui';
 import { pickSet, useLearn } from '../state/learn';
 import { usePuzzleBank } from './Puzzles';
+import { Accent, Moves, Rich, San } from '../components/Rich';
 
 const BRUSH: Record<string, string> = { r: 'red', b: 'blue', y: 'yellow' };
 
@@ -318,19 +319,27 @@ export function LessonPage({ id }: { id: string }) {
               <dl>
                 <div>
                   <dt>What it is</dt>
-                  <dd>{step.what}</dd>
+                  <dd>
+                    <Rich text={step.what} />
+                  </dd>
                 </div>
                 <div>
                   <dt>What to look for</dt>
-                  <dd>{step.cue}</dd>
+                  <dd>
+                    <Rich text={step.cue} />
+                  </dd>
                 </div>
                 <div>
                   <dt>How to set it up</dt>
-                  <dd>{step.setup}</dd>
+                  <dd>
+                    <Rich text={step.setup} />
+                  </dd>
                 </div>
                 <div>
                   <dt>How to defend</dt>
-                  <dd>{step.defend}</dd>
+                  <dd>
+                    <Rich text={step.defend} />
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -338,16 +347,22 @@ export function LessonPage({ id }: { id: string }) {
             <div className={`coach-card ${tap.right ? 'good' : tap.square ? 'bad' : ''}`} key={tapStep.title}>
               <span className="coach-step">{STEP_LABEL.tap}</span>
               <h3 className="coach-title">{tap.right ? 'Yes' : tap.square ? 'Not that one' : tapStep.title}</h3>
-              <p className="coach-text">{tap.right ? tapStep.success : tapStep.text}</p>
+              <p className="coach-text">
+                <Rich text={tap.right ? tapStep.success : tapStep.text} />
+              </p>
               {!tap.right && <p className="coach-line">Tap a square on the board.</p>}
             </div>
           ) : walk ? (
             <StepCard step={walk} label={STEP_LABEL.walk} text={walkPly === 0 ? walk.text : walk.moves[walkPly - 1].text}>
-              <p className="coach-line">
-                {sanLine(
-                  walk.fen,
-                  walk.moves.slice(0, walkPly).map((m) => m.uci),
-                ).join(' ') || ' '}
+              <p className="coach-line moves-line">
+                <Moves
+                  line={
+                    sanLine(
+                      walk.fen,
+                      walk.moves.slice(0, walkPly).map((m) => m.uci),
+                    ).join(' ') || ' '
+                  }
+                />
               </p>
             </StepCard>
           ) : puzzle ? (
@@ -440,7 +455,7 @@ function StepCard({ step, label, text, children }: { step: LessonStep; label: st
         <span className="coach-step">{label}</span>
       </div>
       <h3 className="coach-title">{step.title}</h3>
-      <p className="coach-text">{text}</p>
+      <p className="coach-text">{typeof text === 'string' ? <Rich text={text} /> : text}</p>
       {children}
     </div>
   );
@@ -464,13 +479,21 @@ export function SolverFeedback({
   const end = useRevealInPanel<HTMLSpanElement>(solver.state);
   return (
     <>
-      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 1 && <p className="coach-hint">{solver.hints.idea}</p>}
-      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 2 && <p className="coach-hint">{solver.hints.piece}</p>}
+      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 1 && (
+        <p className="coach-hint">
+          <Rich text={solver.hints.idea} />
+        </p>
+      )}
+      {solver.state === 'solve' && solver.hints && solver.hintLevel >= 2 && (
+        <p className="coach-hint">
+          <Rich text={solver.hints.piece} />
+        </p>
+      )}
       {solver.state === 'checking' && <p className="coach-text faint">Checking your move…</p>}
       {solver.state === 'wrong' && (
         <>
           <p className="coach-text wrong-text">
-            <b>Not quite.</b> {solver.message ?? 'That move doesn’t work here.'}
+            <b>Not quite.</b> <Rich text={solver.message ?? 'That move doesn’t work here.'} />
           </p>
           <div className="row">
             <button className="btn small primary" onClick={solver.retry}>
@@ -496,8 +519,12 @@ export function SolverFeedback({
               {solver.state === 'solved' ? (solver.failed ? 'Solved' : 'Correct!') : 'Here’s the solution'}
             </div>
           )}
-          {solver.alt && alt && <p className="coach-text faint">That works too. {alt}</p>}
-          <p className="coach-text">{success}</p>
+          {solver.alt && alt && (
+            <p className="coach-text faint">
+              That works too. <Rich text={alt} />
+            </p>
+          )}
+          <p className="coach-text">{typeof success === 'string' ? <Rich text={success} /> : success}</p>
         </div>
       )}
       <span ref={end} />
@@ -525,7 +552,7 @@ function QuizCard({ step, picked, onPick }: { step: QuizStep; picked: number | n
       {chosen && (
         <p ref={why} className={`coach-text ${chosen.correct ? '' : 'wrong-text'}`}>
           <b>{chosen.correct ? 'Yes. ' : 'Not the best. '}</b>
-          {chosen.why}
+          <Rich text={chosen.why} />
         </p>
       )}
     </div>
@@ -541,9 +568,15 @@ function PuzzleCard({ step, solver }: { step: PuzzleStep; solver: Solver }) {
         <span className="coach-step">{STEP_LABEL.puzzle}</span>
       </div>
       <h3 className="coach-title">{step.title}</h3>
-      <p className="coach-text">{step.text}</p>
+      <p className="coach-text">
+        <Rich text={step.text} />
+      </p>
       <SolverFeedback solver={solver} success={step.success} alt={`The idea of this lesson was ${main.split(' ')[0]}.`} />
-      {done && <p className="coach-line">{main}</p>}
+      {done && (
+        <p className="coach-line moves-line">
+          <Moves line={main} />
+        </p>
+      )}
     </div>
   );
 }
@@ -559,20 +592,29 @@ function PracticeCard({ puzzle, solver, n, of, graded }: { puzzle: TacticPuzzle;
         </span>
         {graded !== undefined && <span className={`pill ${graded ? 'accent' : 'danger'}`}>{graded ? 'First try' : 'Missed'}</span>}
       </div>
-      <h3 className="coach-title">{done ? (solver.state === 'solved' ? (solver.failed ? 'Solved' : 'Correct!') : 'Solution') : `${side} to move`}</h3>
+      <h3 className="coach-title">
+        <Accent
+          text={done ? (solver.state === 'solved' ? (solver.failed ? 'Solved, *with help*' : 'Correct.') : 'The *solution*') : `${side} *to move*`}
+        />
+      </h3>
       {!done && solver.state !== 'wrong' && (
         <p className="coach-text">
           {puzzle.noPrev ? (
             'Find the best move. Use what you just learned.'
           ) : (
             <>
-              {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(puzzle.fen, [puzzle.moves[0]])[0]}</b>. Use what you just learned.
+              {side === 'White' ? 'Black' : 'White'} just played <San san={sanLine(puzzle.fen, [puzzle.moves[0]])[0]} chip />. Use what you just
+              learned.
             </>
           )}
         </p>
       )}
       <SolverFeedback solver={solver} success={explainPuzzle(puzzle)} showResult={false} />
-      {done && <p className="coach-line">{solutionSan(puzzle)}</p>}
+      {done && (
+        <p className="coach-line moves-line">
+          <Moves line={solutionSan(puzzle)} />
+        </p>
+      )}
     </div>
   );
 }
@@ -623,9 +665,9 @@ function useDrill(step: DrillStep | null) {
     playSound(soundForSan(mv.san));
     if (c.isCheckmate()) return win();
     if (step.goal === 'promote' && mv.promotion && !c.moves({ verbose: true }).some((m) => m.to === mv.to)) return win();
-    if (c.isStalemate()) return fail('Stalemate - that’s a draw. Always leave the king a square until you can mate.');
+    if (c.isStalemate()) return fail('Stalemate – that’s a draw. Always leave the king a square until you can mate.');
     if (c.isDraw()) return fail('That’s a draw. Try again.');
-    if (Math.ceil(played.length / 2) >= step.maxMoves) return fail(`Out of moves - you had ${step.maxMoves}. Try again, a little more directly.`);
+    if (Math.ceil(played.length / 2) >= step.maxMoves) return fail(`Out of moves – you had ${step.maxMoves}. Try again, a little more directly.`);
     setStatus('thinking');
     const r = await getAnalysisEngine().analyse({ fen: c.fen(), limits: { depth: 14, movetime: 700 } });
     if (token.current !== t) return;

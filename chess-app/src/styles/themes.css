@@ -786,3 +786,169 @@ cg-board square.hl-wrong {
 [data-theme='paper'] .lesson-item b[style] {
   filter: brightness(0.68) saturate(1.3);
 }
+
+/* ---------------------------------------------------------------- writing */
+
+/* Grey sentences, with the moves and numbers inside them in full white. */
+.coach-text,
+.pattern dd,
+.lesson-box p,
+.lesson-item p {
+  color: var(--text-dim);
+}
+.coach-text b,
+.pattern dd b,
+.coach-hint b,
+.rx-num {
+  color: var(--text);
+  font-weight: 600;
+}
+.rx-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.san {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-transform: none;
+  color: inherit;
+}
+.san.chip {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.9em;
+}
+.fig {
+  display: inline-block;
+  width: 1.18em;
+  height: 1.18em;
+  margin-right: 0.02em;
+  vertical-align: -0.22em;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Lines of moves: mono, with quiet move numbers. */
+.moves-line,
+.moves {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+.coach-line.moves-line {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.moves .san {
+  font-weight: 500;
+}
+.mv-no,
+.line-label {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+.line-label {
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  margin-right: 4px;
+}
+.move-strip .mv,
+.move-list .mv,
+.tree .mv {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+.move-strip .mv .san,
+.move-list .mv .san {
+  font-weight: 500;
+}
+
+/* Labels: spaced capitals, except for the moves inside them. */
+.coach-step .san {
+  font-size: 1.3em;
+  letter-spacing: -0.01em;
+  color: var(--text-dim);
+}
+
+.coach-title em,
+.page-head h1 em,
+.display em {
+  font-style: italic;
+}
+[data-display='serif'] .coach-title em {
+  letter-spacing: 0;
+}
+
+.idea-btn {
+  align-self: flex-start;
+}
+
+/* Headlines and big moments arrive with a little lift. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+}
+.page-head h1,
+.opp-name,
+.coach-title {
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.coach-card.good .coach-title,
+.coach-title.good-text {
+  animation: pop 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: left center;
+}
+
+.end-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  font-size: 2.2rem;
+  line-height: 1.05;
+  animation: pop 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+[data-display='serif'] .end-title {
+  font-size: 3rem;
+}
+.end-rating {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.end-rating .num-display {
+  font-size: 2rem;
+  line-height: 1;
+}
+.end-rating .up {
+  color: var(--good);
+  font-weight: 700;
+}
+.end-rating .down {
+  color: var(--bad);
+  font-weight: 700;
+}
+.end-rating .faint {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+}

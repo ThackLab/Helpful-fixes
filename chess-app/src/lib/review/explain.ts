@@ -136,7 +136,7 @@ function punishment(input: ExplainInput): { text: string; squares: string[]; tag
       const matches = Math.abs(-mat.delta - hung.loss) < 1 || what === `a ${piece}`;
       let text: string;
       if (!wholePiece)
-        text = `Your ${piece} on ${hung.square} is attacked more times than it is defended - the exchanges there cost you ${what} (${lineText(after, 4)}).`;
+        text = `Your ${piece} on ${hung.square} is attacked more times than it is defended – the exchanges there cost you ${what} (${lineText(after, 4)}).`;
       else if (!matches)
         text = `This leaves your ${piece} on ${hung.square} ${hung.undefended ? 'undefended' : 'under-protected'}; ${replySan} starts a sequence that wins ${what} (${lineText(after, Math.min(10, Math.max(4, mat.plies - 1)))}).`;
       else if (moved) text = `Your ${piece} on ${hung.square} can simply be taken: ${replySan} wins it.`;
@@ -256,7 +256,7 @@ export function explainMove(input: ExplainInput): Explanation {
       const idea = bestMoveIdea(before, color, input.recaptureSquare);
       const parts = [best ? `You missed ${best}, which ${idea || 'kept a big advantage'}.` : 'You missed a strong continuation.'];
       if (input.opponentClassification && ['mistake', 'blunder'].includes(input.opponentClassification))
-        parts.push('Your opponent had just slipped - always look for checks, captures and threats after their move.');
+        parts.push('Your opponent had just slipped – always look for checks, captures and threats after their move.');
       const pv = before.lines[0]?.pv[0];
       return {
         headline: `${san} is a miss`,

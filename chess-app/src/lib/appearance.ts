@@ -233,10 +233,9 @@ function pieceCss(): string {
     for (const c of ['w', 'b'] as const)
       for (const [letter, role] of Object.entries(ROLES)) {
         const url = `url('${base}${id}/${c}${letter}.svg')`;
-        // Classic is also bundled as the default for pieces outside any [data-pieces].
-        out.push(
-          `[data-pieces='${id}'] piece.${role}.${c === 'w' ? 'white' : 'black'}, [data-pieces='${id}'] .fig-${c}${letter} { background-image: ${url}; }`,
-        );
+        // Classic board pieces are bundled, so the default never waits for a download; only its figurines load here.
+        const board = id === 'cburnett' ? '' : `[data-pieces='${id}'] piece.${role}.${c === 'w' ? 'white' : 'black'}, `;
+        out.push(`${board}[data-pieces='${id}'] .fig-${c}${letter} { background-image: ${url}; }`);
       }
   return out.join('\n');
 }

@@ -3,6 +3,7 @@ import { Check, ChevronRight, Eye, Flame, Lightbulb, X } from 'lucide-react';
 import { Board } from '../components/Board';
 import { useSolver } from '../components/useSolver';
 import { SolverFeedback, arrowShapes } from './Lesson';
+import { Accent, CountUp, Moves, San } from '../components/Rich';
 import { findLesson } from '../lib/learn/curriculum';
 import { explainPuzzle, puzzleIdea, puzzleSetup, solutionSan, type TacticPuzzle } from '../lib/learn/puzzles';
 import { THEME_INFO, type PuzzleTheme } from '../lib/learn/tags';
@@ -81,7 +82,7 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
             </span>
           )}
           <span className="rating-chip">
-            {rating}
+            <CountUp value={rating} id="puzzle-rating" />
             {delta !== null && <em className={delta >= 0 ? 'up' : 'down'}>{delta >= 0 ? `+${delta}` : delta}</em>}
           </span>
         </div>
@@ -146,13 +147,15 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
                 )}
               </div>
               <h3 className={`coach-title ${clean ? 'good-text' : ''}`}>
-                {done ? (solver.state === 'solved' ? (clean ? 'Correct!' : 'Solved') : 'Solution') : `${side} to move`}
+                <Accent
+                  text={done ? (solver.state === 'solved' ? (clean ? 'Correct.' : 'Solved, *with help*') : 'The *solution*') : `${side} *to move*`}
+                />
               </h3>
               {!done && solver.state !== 'wrong' && (
                 <p className="coach-text">
                   {lastSan ? (
                     <>
-                      {side === 'White' ? 'Black' : 'White'} just played <b>{lastSan}</b>. Find the best reply.
+                      {side === 'White' ? 'Black' : 'White'} just played <San san={lastSan} chip />. Find the best reply.
                     </>
                   ) : (
                     'Find the best move.'
@@ -162,8 +165,10 @@ export function PuzzleSessionPage({ query }: { query: URLSearchParams }) {
               <SolverFeedback solver={solver} success={explainPuzzle(puzzle)} showReveal={false} showResult={false} />
               {done && (
                 <>
-                  <p className="coach-line">{solutionSan(puzzle)}</p>
-                  <button className="btn ghost small" onClick={() => setIdea((v) => !v)}>
+                  <p className="coach-line moves-line">
+                    <Moves line={solutionSan(puzzle)} />
+                  </p>
+                  <button className="btn small idea-btn" onClick={() => setIdea((v) => !v)}>
                     {idea ? 'Back to the end position' : 'See the idea'}
                   </button>
                   <div className="chip-row">

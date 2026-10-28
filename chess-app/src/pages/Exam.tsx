@@ -12,6 +12,7 @@ import { playSound } from '../lib/sound';
 import { Grade } from '../components/ui';
 import { pickSet, useLearn } from '../state/learn';
 import { usePuzzleBank } from './Puzzles';
+import { Accent, Moves, Rich, San } from '../components/Rich';
 
 /** Placement: three puzzles per level for the first four levels; two right moves you up. */
 const PLACEMENT_LEVELS = 4;
@@ -199,15 +200,17 @@ export function ExamPage({ levelId }: { levelId: string }) {
                   {placement ? ` · Level ${item.level.n}` : ''}
                 </span>
               </div>
-              <h3 className="coach-title">{done ? (right ? 'Correct' : 'Not this time') : `${side} to move`}</h3>
+              <h3 className="coach-title">
+                <Accent text={done ? (right ? 'Correct.' : 'Not *this* time') : `${side} *to move*`} />
+              </h3>
               {!done && (
                 <p className="coach-text">
                   {item.puzzle.noPrev ? (
                     'Find the best move.'
                   ) : (
                     <>
-                      {side === 'White' ? 'Black' : 'White'} just played <b>{sanLine(item.puzzle.fen, [item.puzzle.moves[0]])[0]}</b>. Find the best
-                      move.
+                      {side === 'White' ? 'Black' : 'White'} just played <San san={sanLine(item.puzzle.fen, [item.puzzle.moves[0]])[0]} chip />. Find
+                      the best move.
                     </>
                   )}
                 </p>
@@ -215,9 +218,17 @@ export function ExamPage({ levelId }: { levelId: string }) {
               {solver.state === 'checking' && <p className="coach-text faint">Checking your move…</p>}
               {done && (
                 <>
-                  {solver.state === 'wrong' && solver.message && <p className="coach-text wrong-text">{solver.message}</p>}
-                  <p className="coach-text">{explainPuzzle(item.puzzle)}</p>
-                  <p className="coach-line">{solutionSan(item.puzzle)}</p>
+                  {solver.state === 'wrong' && solver.message && (
+                    <p className="coach-text wrong-text">
+                      <Rich text={solver.message} />
+                    </p>
+                  )}
+                  <p className="coach-text">
+                    <Rich text={explainPuzzle(item.puzzle)} />
+                  </p>
+                  <p className="coach-line moves-line">
+                    <Moves line={solutionSan(item.puzzle)} />
+                  </p>
                 </>
               )}
             </div>

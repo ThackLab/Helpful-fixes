@@ -80,7 +80,7 @@ export class CoachError extends Error {}
 function friendlyError(e: unknown): CoachError {
   if (e instanceof Anthropic.AuthenticationError) return new CoachError('Your Anthropic API key was rejected. Check it in Settings.');
   if (e instanceof Anthropic.PermissionDeniedError) return new CoachError('This API key is not allowed to use the coach model.');
-  if (e instanceof Anthropic.RateLimitError) return new CoachError('Rate limited by the Anthropic API - wait a moment and try again.');
+  if (e instanceof Anthropic.RateLimitError) return new CoachError('Rate limited by the Anthropic API – wait a moment and try again.');
   if (e instanceof Anthropic.APIConnectionError) return new CoachError('Could not reach the Anthropic API. Are you online?');
   if (e instanceof Anthropic.APIError) return new CoachError(`Anthropic API error ${e.status ?? ''}: ${e.message}`);
   return new CoachError(e instanceof Error ? e.message : String(e));

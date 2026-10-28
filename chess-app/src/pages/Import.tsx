@@ -210,7 +210,7 @@ export function ImportPage() {
       setList(out);
       await refreshKnown();
     } catch (e) {
-      setError(e instanceof Error ? (e.message === 'Failed to fetch' ? 'Network error - are you online?' : e.message) : String(e));
+      setError(e instanceof Error ? (e.message === 'Failed to fetch' ? 'Network error – are you online?' : e.message) : String(e));
     } finally {
       setBusy(false);
     }

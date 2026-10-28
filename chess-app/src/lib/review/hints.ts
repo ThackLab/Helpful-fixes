@@ -27,9 +27,9 @@ export function hintsFor(fen: string, bestUci: string, bestSan: string, opts: { 
   else if (kinds.has('freePiece') || kinds.has('winsMaterial')) motif = 'Is any enemy piece undefended? Look at the captures.';
   let idea: string;
   if (bestSan.includes('#')) idea = 'There is a checkmate in one!';
-  else if (mateSoon) idea = 'There is a forced checkmate - start with the most forcing move.';
+  else if (mateSoon) idea = 'There is a forced checkmate – start with the most forcing move.';
   else if (chess.inCheck())
-    idea = `You're in check. Compare every way out - moving the king, blocking or capturing. ${motif ?? 'Which one leaves you safest?'}`;
+    idea = `You're in check. Compare every way out – moving the king, blocking or capturing. ${motif ?? 'Which one leaves you safest?'}`;
   else if (motif) idea = motif;
   else if (bestSan.includes('x')) idea = 'Look at the captures.';
   else if (bestSan.includes('+')) idea = 'Look at the checks.';
@@ -68,6 +68,6 @@ export function refutationText(fenAfterTry: string, replyUci: string | undefined
   const motif = moveMotifs(fenAfterTry, replyUci).find((m) => PUNISHING.includes(m.kind));
   if (motif) return `Your opponent answers ${mv.san}, which ${motif.text}.`;
   if (ep >= 0.6) return 'That move is playable, but there is something clearly stronger.';
-  if (ep >= 0.4) return `After ${mv.san} the position is about equal - your advantage is gone.`;
+  if (ep >= 0.4) return `After ${mv.san} the position is about equal – your advantage is gone.`;
   return `After ${mv.san} your opponent is better.`;
 }

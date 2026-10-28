@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpDown, ChevronLeft, ChevronRight, Gauge, Microscope, SkipForward, X } from 'lucide-react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Gauge, Microscope, Play, RotateCcw, SkipForward, X } from 'lucide-react';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
@@ -24,6 +24,7 @@ import { summariseGame } from '../lib/review/review';
 import { puzzlesFrom, useReviewer } from '../state/reviewer';
 import { monogram } from '../lib/bots/bots';
 import type { Score } from '../lib/engine/uci';
+import { CountUp, Moves, Rich, San } from '../components/Rich';
 
 const SUMMARY_CLASSES: Classification[] = CLASS_ORDER.filter((c) => c !== 'forced');
 const BAD: Classification[] = ['inaccuracy', 'mistake', 'miss', 'blunder'];
@@ -60,7 +61,15 @@ function useGameAndReview(gameId: string) {
   return { game, review };
 }
 
-const moveName = (m: ReviewedMove) => `${Math.floor(m.ply / 2) + 1}${m.color === 'w' ? '.' : '...'} ${m.san}`;
+/** "4... Bxf3" with the move in notation style (never uppercased with the label around it). */
+function MoveName({ m }: { m: ReviewedMove }) {
+  return (
+    <>
+      {Math.floor(m.ply / 2) + 1}
+      {m.color === 'w' ? '.' : '...'} <San san={m.san} />
+    </>
+  );
+}
 
 /** The coach comment without its closing "Best was ..." sentence, for when the best move gets its own section. */
 const withoutBest = (comment: string) => comment.replace(/\s*Best was [^]*$/, '');
@@ -355,7 +364,7 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         clock={
           s ? (
             <div className={`acc-box small ${c === 'b' ? 'dark' : ''}`} title="Accuracy">
-              {s.accuracy.toFixed(1)}
+              <CountUp value={s.accuracy} decimals={1} />
             </div>
           ) : undefined
         }
@@ -405,17 +414,17 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         <div className="coach-top">
           <span className="coach-step">
             {step}
-            {moveName(m)}
+            <MoveName m={m} />
           </span>
         </div>
         {retry.state === 'try' && (
           <>
             <h3 className="coach-title">{retry.checking ? 'Checking your move…' : `Find a better move for ${sideName}`}</h3>
             <p className="coach-text">
-              In the game, {sideName} played <b>{m.san}</b> <ClassIcon cls={m.classification} size={16} />. What would you play instead? Make your
-              move on the board.
+              In the game, {sideName} played <San san={m.san} chip /> <ClassIcon cls={m.classification} size={16} />. What would you play instead?
+              Make your move on the board.
             </p>
-            {retry.attempts > 0 && <p className="coach-text faint">Not that one - try again.</p>}
+            {retry.attempts > 0 && <p className="coach-text faint">Not that one – try again.</p>}
             {hints && (retry.hints ?? 0) >= 1 && <p className="coach-hint">{hints.idea}</p>}
             {hints && (retry.hints ?? 0) >= 2 && <p className="coach-hint">{hints.piece}</p>}
             <div className="row">
@@ -436,8 +445,9 @@ export function ReviewPage({ gameId }: { gameId: string }) {
               Not quite
             </h3>
             <p className="coach-text">
-              {retry.refutation ? `${retry.refutation} ` : 'That move still lets the advantage slip. '}
-              Look again - checks, captures and threats first.
+              <Rich
+                text={`${retry.refutation ? `${retry.refutation} ` : 'That move still lets the advantage slip. '}Look again: checks, captures and threats first.`}
+              />
             </p>
             <div className="row">
               <button className="btn small primary" onClick={() => setRetry({ state: 'try', attempts: retry.attempts, hints: retry.hints })}>
@@ -452,31 +462,42 @@ export function ReviewPage({ gameId }: { gameId: string }) {
         {(retry.state === 'correct' || retry.state === 'revealed') && (
           <>
             <h3 className="coach-title" style={{ color: retry.state === 'correct' ? CLASS_META.best.color : undefined }}>
-              {retry.state === 'correct'
-                ? `Correct${retry.tried && retry.tried !== m.bestMove ? ' - that works too' : ''}!`
-                : `The move was ${m.bestSan}`}
+              {retry.state === 'correct' ? (
+                `Correct${retry.tried && retry.tried !== m.bestMove ? ' - that works too' : ''}!`
+              ) : (
+                <>
+                  The move was <San san={m.bestSan ?? ''} />
+                </>
+              )}
             </h3>
             <div className="coach-section">
               <div className="coach-label">What happened in the game</div>
               <p className="coach-text">
-                <b>{m.san}</b> {CLASS_META[m.classification].verdict}. {m.bestLine.length ? withoutBest(m.comment) : m.comment}
+                <San san={m.san} chip /> {CLASS_META[m.classification].verdict}.{' '}
+                <Rich text={m.bestLine.length ? withoutBest(m.comment) : m.comment} />
               </p>
             </div>
             {m.bestLine.length > 0 && (
               <div className="coach-section">
-                <div className="coach-label">Why {m.bestSan} is better</div>
-                <p className="coach-text">{bestIdeaSentence(review.positions[cur], m.color, m.epBefore, recaptureAt(moves, cur))}</p>
-                <p className="coach-line">{formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
+                <div className="coach-label">
+                  Why <San san={m.bestSan ?? ''} /> is better
+                </div>
+                <p className="coach-text">
+                  <Rich text={bestIdeaSentence(review.positions[cur], m.color, m.epBefore, recaptureAt(moves, cur))} />
+                </p>
+                <p className="coach-line moves-line">
+                  <Moves line={formatLine(m.fenBefore, m.bestLine.slice(0, 8))} />
+                </p>
               </div>
             )}
             {lesson && <LessonBox title={lesson.info.title} rule={lesson.info.rule} theme={lesson.theme} />}
             <div className="row">
               <button className="btn small" onClick={() => showLine(m.fenBefore, bestLineFor(m))}>
-                ▶ Play the line
+                <Play size={14} /> Play the line
               </button>
               {guided ? (
                 <button className="btn small primary" onClick={() => guidedStep(guided.idx + 1)}>
-                  {guided.idx + 1 < guided.plies.length ? 'Next lesson ▶' : 'Finish ▶'}
+                  {guided.idx + 1 < guided.plies.length ? 'Next moment' : 'Finish'} <ChevronRight size={14} />
                 </button>
               ) : (
                 <button className="btn small" onClick={() => setRetry(null)}>
@@ -492,26 +513,38 @@ export function ReviewPage({ gameId }: { gameId: string }) {
     panel = (
       <div className="coach-card">
         <div className="coach-top">
-          <span className="coach-step">{moveName(m)}</span>
+          <span className="coach-step">
+            <MoveName m={m} />
+          </span>
           <ScoreChip score={m.scoreAfter} />
         </div>
         <h3 className="coach-title" style={{ color: CLASS_META[m.classification].color }}>
           <ClassIcon cls={m.classification} size={22} /> {m.headline}
         </h3>
-        <p className="coach-text">{m.comment}</p>
+        <p className="coach-text">
+          <Rich text={m.comment} />
+        </p>
         {m.bestSan && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
-          <p className="coach-line">Best: {formatLine(m.fenBefore, m.bestLine.slice(0, 8))}</p>
+          <p className="coach-line moves-line">
+            <span className="line-label">Best</span> <Moves line={formatLine(m.fenBefore, m.bestLine.slice(0, 8))} />
+          </p>
         )}
         {lesson && <LessonBox title={lesson.info.title} rule={lesson.info.rule} theme={lesson.theme} />}
         <div className="row" style={{ marginTop: 4 }}>
           {retryable && (
             <button className="btn small primary" onClick={() => setRetry({ state: 'try', attempts: 0 })}>
-              ↻ Retry
+              <RotateCcw size={14} /> Retry
             </button>
           )}
           {m.bestMove && m.bestMove !== m.uci && !['book', 'forced'].includes(m.classification) && (
             <button className="btn small" onClick={() => (line ? setLine(null) : showLine(m.fenBefore, bestLineFor(m)))}>
-              {line ? 'Back to game' : '▶ Best line'}
+              {line ? (
+                'Back to game'
+              ) : (
+                <>
+                  <Play size={14} /> Best line
+                </>
+              )}
             </button>
           )}
           {review.positions[cur + 1]?.lines[0]?.pv.length ? (
@@ -519,7 +552,13 @@ export function ReviewPage({ gameId }: { gameId: string }) {
               className="btn small"
               onClick={() => (line ? setLine(null) : showLine(m.fenAfter, review.positions[cur + 1].lines[0].pv.slice(0, 10)))}
             >
-              {line ? 'Back to game' : '▶ Follow-up'}
+              {line ? (
+                'Back to game'
+              ) : (
+                <>
+                  <Play size={14} /> Follow-up
+                </>
+              )}
             </button>
           ) : null}
           <label className="toggle" style={{ fontSize: '0.82rem', marginLeft: 'auto' }}>
@@ -592,12 +631,12 @@ export function ReviewPage({ gameId }: { gameId: string }) {
               <button className="icon-btn" onClick={() => setLine({ ...line, idx: Math.max(0, line.idx - 1) })} aria-label="Back">
                 <ChevronLeft size={18} />
               </button>
-              <div style={{ flex: 1, fontSize: '0.88rem' }}>
+              <div className="moves" style={{ flex: 1, fontSize: '0.88rem' }}>
                 {formatLine(line.base, sanOf(line.base, line.moves))
                   .split(' ')
                   .map((t, i, arr) => (
                     <span key={i} style={{ opacity: tokenPly(arr, i) < line.idx ? 1 : 0.4 }}>
-                      {t}{' '}
+                      {/^\d+\./.test(t) ? <span className="mv-no">{t}</span> : <San san={t} />}{' '}
                     </span>
                   ))}
               </div>
@@ -793,7 +832,7 @@ function LessonList({ lessons, moves, onJump }: { lessons: GameLessons; moves: R
             <div className="row" style={{ gap: 6 }}>
               {l.plies.slice(0, 6).map((p) => (
                 <button key={p} className="chip" onClick={() => onJump(p)}>
-                  {moves[p] && <ClassIcon cls={moves[p].classification} size={14} />} {moves[p] ? moveName(moves[p]) : ''}
+                  {moves[p] && <ClassIcon cls={moves[p].classification} size={14} />} {moves[p] ? <MoveName m={moves[p]} /> : ''}
                 </button>
               ))}
             </div>
@@ -851,7 +890,9 @@ function Overview({
             </span>
           )}
         </div>
-        <p className="coach-text">{review.summary.replace(/ Coach's tips:.*$/, '')}</p>
+        <p className="coach-text">
+          <Rich text={review.summary.replace(/ Coach's tips:.*$/, '')} />
+        </p>
         {review.opening && <p className="coach-line">{review.opening.name}</p>}
       </div>
 
@@ -875,11 +916,15 @@ function Overview({
           </tr>
           <tr>
             <td className="n">
-              <span className="acc-box">{review.white.accuracy.toFixed(1)}</span>
+              <span className="acc-box">
+                <CountUp value={review.white.accuracy} decimals={1} />
+              </span>
             </td>
             <td className="label muted">Accuracy</td>
             <td className="n">
-              <span className="acc-box dark">{review.black.accuracy.toFixed(1)}</span>
+              <span className="acc-box dark">
+                <CountUp value={review.black.accuracy} decimals={1} />
+              </span>
             </td>
           </tr>
           <tr>
@@ -943,13 +988,15 @@ function Overview({
           .map((x) => (
             <div key={x.ply} className="key-moment" onClick={() => onJump(x.ply)}>
               <ClassIcon cls={x.classification} size={20} />
-              <b style={{ minWidth: 70 }}>{moveName(x)}</b>
+              <b style={{ minWidth: 70 }}>
+                <MoveName m={x} />
+              </b>
               <span className="muted" style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {x.headline}
               </span>
             </div>
           ))}
-        {!review.keyMoments.length && <div className="faint">No big swings - a clean game.</div>}
+        {!review.keyMoments.length && <div className="faint">No big swings – a clean game.</div>}
       </div>
     </div>
   );

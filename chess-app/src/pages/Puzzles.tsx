@@ -6,6 +6,7 @@ import { listPuzzles, onDbChange } from '../lib/storage/db';
 import { navigate } from '../lib/router';
 import { ListRow, PageHead, SectionTitle, Sparkline } from '../components/ui';
 import { liveStreak, useLearn } from '../state/learn';
+import { CountUp } from '../components/Rich';
 
 /** Theme sets on the hub, in teaching order. */
 export const THEME_SETS: { id: string; title: string; themes: PuzzleTheme[] }[] = [
@@ -94,7 +95,9 @@ export function PuzzlesPage() {
 
       <section className="rating-hero">
         <span className="rh-label">Puzzle rating</span>
-        <span className="big-num">{learn.rating}</span>
+        <span className="big-num">
+          <CountUp value={learn.rating} id="puzzle-rating" />
+        </span>
         <span className="spark">{history.length > 1 ? <Sparkline values={history.slice(-40)} height={36} /> : 'Solve a few to see your trend.'}</span>
         <div className="stats-row">
           <div className="stat">
